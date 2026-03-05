@@ -91,6 +91,20 @@ export async function getClinicalProcedures(
 }
 
 /**
+ * Get clinical note documents from Apple Health.
+ * Notes are FHIR DocumentReference resources; the document itself
+ * (typically a PDF) is base64-encoded in fhirResource.content[].attachment.data.
+ */
+export async function getClinicalNotes(
+  range?: DateRange,
+): Promise<ClinicalRecord[]> {
+  return getClinicalRecords(
+    ClinicalRecordType.ClinicalNoteRecord,
+    buildOptions(range),
+  );
+}
+
+/**
  * Fetch all supported clinical record types at once.
  * Runs queries in parallel for efficiency.
  */

@@ -14,6 +14,9 @@ import {
   CONCIERGE_SYSTEM_PROMPT,
 } from './chatHelperPlaybook';
 
+// Re-export for consumers
+export type { QuickAction };
+
 interface ActiveFlow {
   flowId: string;
   stepIndex: number;
@@ -44,6 +47,7 @@ export function useConciergeChat(provider: ChatProvider | null) {
     useState<ActiveCheckpoint | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
+  const [activeSubActions, setActiveSubActions] = useState<QuickAction[] | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const animTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -165,6 +169,7 @@ export function useConciergeChat(provider: ChatProvider | null) {
     setActiveFlow(null);
     setActiveCheckpoint(null);
     setAwaitingFollowUp(false);
+    setActiveSubActions(null);
     setShowQuickActions(true);
 
     await wait(250);
@@ -413,6 +418,31 @@ export function useConciergeChat(provider: ChatProvider | null) {
     ],
   );
 
+  const startSubMenu = useCallback(
+    (action: QuickAction) => {
+      if (busyRef.current || isLoading) return;
+      if (!action.subActions) return;
+
+      setShowQuickActions(false);
+
+      const process = async () => {
+        busyRef.current = true;
+        try {
+          if (action.greeting) {
+            await animateBotMessage(action.greeting);
+          }
+          if (!mountedRef.current) return;
+          setActiveSubActions(action.subActions!);
+        } finally {
+          busyRef.current = false;
+        }
+      };
+
+      process();
+    },
+    [isLoading, animateBotMessage],
+  );
+
   const startFlow = useCallback(
     (flowId: string) => {
       if (busyRef.current || isLoading) return;
@@ -421,6 +451,7 @@ export function useConciergeChat(provider: ChatProvider | null) {
       if (!flow) return;
 
       setShowQuickActions(false);
+      setActiveSubActions(null);
       setActiveFlow({ flowId, stepIndex: 0 });
 
       const process = async () => {
@@ -475,8 +506,11 @@ export function useConciergeChat(provider: ChatProvider | null) {
     setInput,
     sendMessage,
     startFlow,
+    startSubMenu,
     activeCheckpoint,
     quickActions,
+    subActions: activeSubActions,
     handleStop,
+    resetConversation,
   };
 }

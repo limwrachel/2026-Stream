@@ -9,7 +9,7 @@ const { withEntitlementsPlist, withInfoPlist } = require("expo/config-plugins");
  *
  * Usage in app.config.js:
  *   ["./plugins/withClinicalRecords", {
- *     usageDescription: "HomeFlow would like to access your clinical health records..."
+ *     usageDescription: "StreamSync would like to access your clinical health records..."
  *   }]
  *
  * Removing this plugin entry removes the entitlement entirely,
@@ -17,7 +17,7 @@ const { withEntitlementsPlist, withInfoPlist } = require("expo/config-plugins");
  */
 
 const DEFAULT_USAGE_DESCRIPTION =
-  "HomeFlow would like to access your clinical health records to import medications, lab results, and conditions — reducing manual data entry.";
+  "StreamSync would like to access your clinical health records to import medications, lab results, and conditions — reducing manual data entry.";
 
 function withClinicalRecordsEntitlement(config) {
   return withEntitlementsPlist(config, (mod) => {

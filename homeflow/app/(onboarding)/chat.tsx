@@ -1,290 +1,372 @@
 /**
- * Onboarding Chat Screen
+ * Onboarding Eligibility Check Screen
  *
- * Eligibility screening through natural conversation with AI assistant.
+ * Structured eligibility questionnaire replacing the AI chat-based screening.
  * Medical history collection happens later (after consent & permissions)
  * in the medical-history screen.
  */
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   useColorScheme,
-  Animated,
-  Keyboard,
-  TouchableWithoutFeedback,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter, Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
-import { ChatView, ChatProvider } from '@spezivibe/chat';
 import { Colors, StanfordColors, Spacing } from '@/constants/theme';
-import { OnboardingStep, STUDY_INFO } from '@/lib/constants';
+import { OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { OnboardingProgressBar, ContinueButton, DevToolBar } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
-/**
- * System prompt for eligibility screening only.
- *
- * ELIGIBILITY CRITERIA (Pending from PI)
- * The eligibility questions below are preliminary placeholders.
- * Final eligibility criteria will be provided by the Principal Investigator (PI).
- * Update this prompt once official criteria are received.
- */
-const SYSTEM_PROMPT = `You are a friendly research assistant helping to screen participants for the HomeFlow BPH study. Your goal is to check eligibility through natural conversation.
+// Lazy-load so the screen still renders even if the package isn't available
+let DateTimePicker: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  DateTimePicker = require('react-native-ui-datepicker').DateTimePicker;
+} catch {
+  // noop – graceful degradation below
+}
 
-## Study Information
-- Name: ${STUDY_INFO.name}
-- Institution: ${STUDY_INFO.institution}
-- Purpose: Track voiding patterns and symptoms before/after bladder outlet surgery
+type YesNo = 'yes' | 'no' | null;
 
-## Eligibility (Required Criteria)
-Check these naturally (don't read a checklist):
-1. Has iPhone with iOS 15+ (required)
-2. Has BPH or lower urinary tract symptoms suspected to be caused by BPH - such as frequent urination, weak stream, nighttime urination (required)
-3. Planning to undergo a bladder outlet procedure such as TURP, HoLEP, GreenLight laser, UroLift, Rezum, Aquablation (required)
-
-Note: Apple Watch and Throne uroflow devices will be provided to participants - do NOT ask about these.
-
-## Conversation Guidelines
-- Be warm, conversational, and empathetic
-- Ask one criterion at a time naturally
-- Acknowledge symptoms supportively when mentioned
-- NEVER give medical advice or interpret their values
-- If ineligible, be kind and explain why clearly
-
-## Important Response Markers (include these exact phrases)
-When eligibility is confirmed: [ELIGIBLE]
-When ineligible: [INELIGIBLE]
-
-## Conversation Flow
-1. Start with eligibility (iPhone, BPH diagnosis/symptoms, surgery plans)
-2. If eligible: "Great news! You're eligible for the HomeFlow study. [ELIGIBLE] Next, we'll walk you through the informed consent process. Tap Continue to proceed."
-3. If ineligible: Explain kindly why they don't meet criteria. [INELIGIBLE]
-
-## Start the Conversation
-"Hi! I'm here to help you join the HomeFlow study. This is a research study that tracks urinary symptoms before and after bladder outlet surgery. Let me ask a few quick questions to make sure this study is right for you.
-
-First - are you using an iPhone with iOS 15 or later?"`;
-
-type ChatPhase = 'eligibility' | 'eligible' | 'ineligible';
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 export default function OnboardingChatScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
 
-  const [phase, setPhase] = useState<ChatPhase>('eligibility');
-  const [canContinue, setCanContinue] = useState(false);
+  const [bphDiagnosis, setBphDiagnosis] = useState<YesNo>(null);
+  const [surgerySched, setSurgerySched] = useState<YesNo>(null);
+  const [surgeryDate, setSurgeryDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Animation for continue button
-  const buttonOpacity = useRef(new Animated.Value(0)).current;
+  const canContinue = bphDiagnosis === 'yes' && surgerySched === 'yes';
 
-  // Get API key from environment
-  const apiKey = Constants.expoConfig?.extra?.openaiApiKey || process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
+  const cardBg = isDark ? '#1C1C1E' : '#F2F2F7';
+  const noButtonBg = isDark ? '#2C2C2E' : '#E5E5EA';
+  const noButtonText = isDark ? '#EBEBF5' : '#3A3A3C';
+  const dateInputBg = isDark ? '#2C2C2E' : '#E5E5EA';
 
-  // Chat provider config
-  const provider: ChatProvider = useMemo(
-    () => ({
-      type: 'openai',
-      apiKey,
-      model: 'gpt-4o-mini',
-    }),
-    [apiKey]
-  );
-
-  useEffect(() => {
-    if (canContinue) {
-      Animated.spring(buttonOpacity, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 8,
-      }).start();
-    }
-  }, [canContinue, buttonOpacity]);
-
-  // Watch for phase markers in chat messages
-  // This is a simplified approach - in production you'd use function calling
-  const checkForMarkers = useCallback((message: string) => {
-    const lowerMessage = message.toLowerCase();
-
-    if (message.includes('[INELIGIBLE]') || lowerMessage.includes("unfortunately") && lowerMessage.includes("not eligible")) {
-      setPhase('ineligible');
-      // Navigate to ineligible screen after a brief delay
+  const handleBphSelect = (value: YesNo) => {
+    setBphDiagnosis(value);
+    if (value === 'no') {
       setTimeout(() => {
         router.replace('/(onboarding)/ineligible' as Href);
-      }, 2000);
-    } else if (message.includes('[ELIGIBLE]') || (lowerMessage.includes("eligible") && lowerMessage.includes("great news"))) {
-      setPhase('eligible');
-      setCanContinue(true);
+      }, 400);
     }
-  }, [router]);
+  };
+
+  const handleSurgerySelect = (value: YesNo) => {
+    setSurgerySched(value);
+    if (value === 'no') {
+      setTimeout(() => {
+        router.replace('/(onboarding)/ineligible' as Href);
+      }, 400);
+    }
+  };
 
   const handleContinue = async () => {
-    // Save collected data (in a real app, you'd parse the chat transcript)
     await OnboardingService.updateData({
       eligibility: {
         hasIPhone: true,
-        hasBPHDiagnosis: true,
-        consideringSurgery: true,
-        isEligible: true,
+        hasBPHDiagnosis: bphDiagnosis === 'yes',
+        consideringSurgery: surgerySched === 'yes',
+        isEligible: canContinue,
       },
     });
-
     await OnboardingService.goToStep(OnboardingStep.CONSENT);
     router.push('/(onboarding)/consent' as Href);
   };
 
-  const getPhaseText = () => {
-    switch (phase) {
-      case 'eligibility':
-        return 'Checking eligibility...';
-      case 'eligible':
-        return 'Eligible! Ready to continue.';
-      case 'ineligible':
-        return 'Checking eligibility...';
-      default:
-        return '';
-    }
-  };
-
-  // If no API key, show a placeholder
-  if (!apiKey) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <OnboardingProgressBar currentStep={OnboardingStep.CHAT} />
-        </View>
-        <View style={styles.noApiKey}>
-          <IconSymbol name={'info.circle.fill' as any} size={48} color={colors.icon} />
-          <Text style={[styles.noApiKeyTitle, { color: colors.text }]}>
-            Chat Not Available
-          </Text>
-          <Text style={[styles.noApiKeyText, { color: colors.icon }]}>
-            OpenAI API key not configured. For demo purposes, tap Continue to proceed.
-          </Text>
-          <ContinueButton title="Continue (Demo)" onPress={handleContinue} style={{ marginTop: Spacing.lg }} />
-        </View>
-
-        <DevToolBar currentStep={OnboardingStep.CHAT} onContinue={handleContinue} />
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        <View style={styles.header}>
-          <OnboardingProgressBar currentStep={OnboardingStep.CHAT} />
-          <View style={styles.phaseIndicator}>
-            <View
-              style={[
-                styles.phaseDot,
-                { backgroundColor: phase === 'eligible' ? '#34C759' : StanfordColors.cardinal },
-              ]}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={styles.progressHeader}>
+        <OnboardingProgressBar currentStep={OnboardingStep.CHAT} />
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ── Header ── */}
+        <View style={styles.titleRow}>
+          <View style={styles.iconCircle}>
+            <IconSymbol name={'checkmark' as any} size={22} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.title, { color: colors.text }]}>Eligibility Check</Text>
+        </View>
+        <Text style={[styles.subtitle, { color: colors.icon }]}>
+          Let&apos;s make sure this study is right for you
+        </Text>
+
+        {/* ── Q1: BPH Diagnosis ── */}
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text style={[styles.questionText, { color: colors.text }]}>
+            Have you been diagnosed with BPH (Benign Prostatic Hyperplasia)?
+          </Text>
+          <View style={styles.yesNoRow}>
+            <YesNoButton
+              label="Yes"
+              selected={bphDiagnosis === 'yes'}
+              onPress={() => handleBphSelect('yes')}
+              selectedBg={StanfordColors.cardinal}
+              unselectedBg={noButtonBg}
+              unselectedText={noButtonText}
             />
-            <Text style={[styles.phaseText, { color: colors.icon }]}>{getPhaseText()}</Text>
+            <YesNoButton
+              label="No"
+              selected={bphDiagnosis === 'no'}
+              onPress={() => handleBphSelect('no')}
+              selectedBg={StanfordColors.cardinal}
+              unselectedBg={noButtonBg}
+              unselectedText={noButtonText}
+            />
           </View>
         </View>
 
-        <ChatView
-          provider={provider}
-          systemPrompt={SYSTEM_PROMPT}
-          placeholder="Type your response..."
-          onResponse={checkForMarkers}
-          emptyState={
-            <View style={styles.emptyState}>
-              <IconSymbol name="message.fill" size={48} color={colors.icon} />
-              <Text style={[styles.emptyStateText, { color: colors.icon }]}>
-                Starting conversation...
-              </Text>
-            </View>
-          }
-        />
+        {/* ── Q2: Surgery Scheduled ── */}
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text style={[styles.questionText, { color: colors.text }]}>
+            Do you have a scheduled bladder outlet surgery?
+          </Text>
+          <Text style={[styles.questionSubtext, { color: colors.icon }]}>
+            Such as TURP, HoLEP, GreenLight laser, UroLift, Rezum, or Aquablation
+          </Text>
+          <View style={styles.yesNoRow}>
+            <YesNoButton
+              label="Yes"
+              selected={surgerySched === 'yes'}
+              onPress={() => handleSurgerySelect('yes')}
+              selectedBg={StanfordColors.cardinal}
+              unselectedBg={noButtonBg}
+              unselectedText={noButtonText}
+            />
+            <YesNoButton
+              label="No"
+              selected={surgerySched === 'no'}
+              onPress={() => handleSurgerySelect('no')}
+              selectedBg={StanfordColors.cardinal}
+              unselectedBg={noButtonBg}
+              unselectedText={noButtonText}
+            />
+          </View>
+        </View>
 
-        {canContinue && (
-          <Animated.View
-            style={[
-              styles.continueContainer,
-              {
-                backgroundColor: colors.background,
-                opacity: buttonOpacity,
-              },
-            ]}
-          >
-            <Text style={[styles.continueHint, { color: colors.icon }]}>
-              Great! You&apos;re ready for the next step.
+        {/* ── Q3: Surgery Date (shown when surgery is confirmed) ── */}
+        {surgerySched === 'yes' && (
+          <View style={[styles.card, { backgroundColor: cardBg }]}>
+            <Text style={[styles.questionText, { color: colors.text }]}>
+              When is your surgery scheduled?
             </Text>
-            <ContinueButton title="Continue to Consent" onPress={handleContinue} />
-          </Animated.View>
-        )}
 
-        <DevToolBar currentStep={OnboardingStep.CHAT} onContinue={handleContinue} />
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+            {/* Tappable date display row */}
+            <TouchableOpacity
+              style={[styles.dateInput, { backgroundColor: dateInputBg }]}
+              onPress={() => setShowDatePicker((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name={'calendar' as any} size={20} color={colors.icon} />
+              <Text style={[styles.dateText, { color: colors.text }]}>
+                {formatDate(surgeryDate)}
+              </Text>
+              <IconSymbol
+                name={(showDatePicker ? 'chevron.up' : 'chevron.down') as any}
+                size={14}
+                color={colors.icon}
+              />
+            </TouchableOpacity>
+
+            {/* Inline calendar */}
+            {showDatePicker && (
+              <View style={styles.calendarWrap}>
+                {DateTimePicker ? (
+                  <DateTimePicker
+                    mode="single"
+                    date={surgeryDate}
+                    onChange={({ date }: { date: Date }) => {
+                      if (date) {
+                        setSurgeryDate(date);
+                        setShowDatePicker(false);
+                      }
+                    }}
+                    selectedItemColor={StanfordColors.cardinal}
+                    headerButtonColor={StanfordColors.cardinal}
+                    calendarTextStyle={{ color: colors.text }}
+                    headerTextStyle={{ color: colors.text }}
+                    weekDaysTextStyle={{ color: colors.icon }}
+                    todayTextStyle={{ color: StanfordColors.cardinal }}
+                  />
+                ) : (
+                  <Text style={[styles.pickerFallback, { color: colors.icon }]}>
+                    Date picker not available. Install react-native-ui-datepicker.
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── Footer CTA ── */}
+      <View style={[styles.footer, { borderTopColor: isDark ? '#2C2C2E' : 'rgba(0,0,0,0.1)' }]}>
+        <ContinueButton
+          title="Continue to Consent"
+          onPress={handleContinue}
+          disabled={!canContinue}
+        />
+      </View>
+
+      <DevToolBar currentStep={OnboardingStep.CHAT} onContinue={handleContinue} />
+    </SafeAreaView>
   );
 }
 
+// ─── Sub-component ───────────────────────────────────────────────────────────
+
+interface YesNoButtonProps {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  selectedBg: string;
+  unselectedBg: string;
+  unselectedText: string;
+}
+
+function YesNoButton({ label, selected, onPress, selectedBg, unselectedBg, unselectedText }: YesNoButtonProps) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.yesNoBtn,
+        { backgroundColor: selected ? selectedBg : unselectedBg },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <Text style={[styles.yesNoBtnText, { color: selected ? '#FFFFFF' : unselectedText }]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
+  container: { flex: 1 },
+
+  progressHeader: {
     paddingTop: Spacing.sm,
   },
-  phaseIndicator: {
+
+  scroll: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: Spacing.screenHorizontal,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.md,
+  },
+
+  // Header
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.sm,
+    gap: 12,
+    marginBottom: Spacing.xs,
   },
-  phaseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: StanfordColors.cardinal,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  phaseText: {
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  subtitle: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+
+  // Question cards
+  card: {
+    borderRadius: 16,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  questionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  questionSubtext: {
     fontSize: 13,
+    lineHeight: 18,
+    marginTop: -Spacing.sm,
+  },
+
+  // Yes/No buttons
+  yesNoRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  yesNoBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  yesNoBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // Date input
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  dateText: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: '500',
   },
-  emptyState: {
-    alignItems: 'center',
-    gap: Spacing.sm,
+  calendarWrap: {
+    marginTop: -Spacing.sm,
   },
-  emptyStateText: {
-    fontSize: 15,
+  pickerFallback: {
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: Spacing.sm,
   },
-  continueContainer: {
+
+  // Footer
+  footer: {
     padding: Spacing.md,
     paddingBottom: Spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-    gap: Spacing.sm,
-  },
-  continueHint: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  noApiKey: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.screenHorizontal,
-  },
-  noApiKeyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  noApiKeyText: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
   },
 });

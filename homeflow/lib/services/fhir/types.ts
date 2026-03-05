@@ -119,6 +119,7 @@ export interface MedicalHistoryPrefill {
   clinicalMeasurements: {
     pvr: PrefillEntry<LabValue>;
     uroflowQmax: PrefillEntry<LabValue>;
+    volumeVoided: PrefillEntry<LabValue>;
     mobility: PrefillEntry<string>;
   };
 

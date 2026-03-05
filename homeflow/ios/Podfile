@@ -68,5 +68,17 @@ target 'HomeFlow' do
         end
       end
     end
+
+    # Inject Local.xcconfig (per-developer signing) into Pods xcconfigs
+    local_xcconfig = File.join(__dir__, 'Local.xcconfig')
+    if File.exist?(local_xcconfig)
+      Dir.glob(File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-HomeFlow', '*.xcconfig')).each do |xcconfig_path|
+        content = File.read(xcconfig_path)
+        include_line = '#include "../../../Local.xcconfig"'
+        unless content.include?(include_line)
+          File.write(xcconfig_path, "#{include_line}\n#{content}")
+        end
+      end
+    end
   end
 end

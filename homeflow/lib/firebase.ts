@@ -7,7 +7,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 // @ts-expect-error - getReactNativePersistence exists at runtime but is missing from some type defs
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
@@ -19,10 +19,11 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const existingApps = getApps();
+const app = existingApps.length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+export const auth = existingApps.length === 0
+  ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
+  : getAuth(app);
 
 export default app;

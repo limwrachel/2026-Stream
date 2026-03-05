@@ -1,7 +1,7 @@
 /**
  * Eligibility Questionnaire
  *
- * Defines the eligibility criteria for the HomeFlow BPH study.
+ * Defines the eligibility criteria for the StreamSync BPH study.
  * Used by the chatbot to validate eligibility conversationally.
  *
  * Note: The chatbot uses this as a reference for what to ask.
@@ -53,7 +53,7 @@ export function checkEligibility(criteria: EligibilityCriteria): {
  */
 export const ELIGIBILITY_QUESTIONNAIRE: Questionnaire = new QuestionnaireBuilder('eligibility')
   .title('Study Eligibility Screening')
-  .description('Please answer these questions to determine if you are eligible for the HomeFlow study.')
+  .description('Please answer these questions to determine if you are eligible for the StreamSync study.')
   .version('1.0.0')
   .addBoolean('has_iphone', 'Do you have an iPhone with iOS 15 or later?', {
     required: true,
@@ -70,10 +70,10 @@ export const ELIGIBILITY_QUESTIONNAIRE: Questionnaire = new QuestionnaireBuilder
  * System prompt for the eligibility chatbot
  * This guides the AI to collect eligibility information conversationally
  */
-export const ELIGIBILITY_CHATBOT_PROMPT = `You are a friendly research assistant helping to screen participants for the HomeFlow BPH study. Your goal is to determine eligibility through natural conversation.
+export const ELIGIBILITY_CHATBOT_PROMPT = `You are a friendly research assistant helping to screen participants for the StreamSync BPH study. Your goal is to determine eligibility through natural conversation.
 
 ## Study Information
-- Name: HomeFlow BPH Study
+- Name: StreamSync BPH Study
 - Purpose: Track voiding patterns and symptoms before/after bladder outlet surgery
 - Requires: iPhone with iOS 15+
 - Focus: Men with BPH who are planning to undergo a bladder outlet procedure
@@ -95,7 +95,7 @@ Ask about eligibility criteria naturally. Don't read a checklist - have a conver
 - Once eligibility is determined, summarize and confirm
 
 ## Example Opening
-"Hi! I'm here to help you join the HomeFlow study. First, I'd love to learn a bit about you. Are you currently using an iPhone?"
+"Hi! I'm here to help you join the StreamSync study. First, I'd love to learn a bit about you. Are you currently using an iPhone?"
 
 ## After Eligibility (if eligible)
 Once you've confirmed they're eligible, say something like:
@@ -107,7 +107,7 @@ Then transition to collecting medical history.`;
  * System prompt for medical history collection
  * Used after eligibility is confirmed
  */
-export const MEDICAL_HISTORY_CHATBOT_PROMPT = `You are continuing to help a participant who has been confirmed eligible for the HomeFlow BPH study. Now collect their medical history through natural conversation.
+export const MEDICAL_HISTORY_CHATBOT_PROMPT = `You are continuing to help a participant who has been confirmed eligible for the StreamSync BPH study. Now collect their medical history through natural conversation.
 
 ## Information to Collect
 1. Current medications (especially for BPH/urinary symptoms)

@@ -162,6 +162,7 @@ export function buildMedicalHistoryPrefill(
     clinicalMeasurements: {
       pvr: emptyEntry<LabValue>(),
       uroflowQmax: emptyEntry<LabValue>(),
+      volumeVoided: emptyEntry<LabValue>(),
       mobility: emptyEntry<string>(),
     },
 

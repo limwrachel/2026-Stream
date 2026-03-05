@@ -9,7 +9,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>HomeFlow</string>
+    <string>StreamSync</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -54,7 +54,7 @@
       <true/>
     </dict>
     <key>NSHealthClinicalHealthRecordsShareUsageDescription</key>
-    <string>HomeFlow would like to access your clinical health records to import medications, lab results, and conditions — reducing manual data entry.</string>
+    <string>StreamSync would like to access your clinical health records to import medications, lab results, and conditions — reducing manual data entry.</string>
     <key>NSHealthShareUsageDescription</key>
     <string>This app needs access to your health data to display your health metrics and track your progress.</string>
     <key>NSHealthUpdateUsageDescription</key>

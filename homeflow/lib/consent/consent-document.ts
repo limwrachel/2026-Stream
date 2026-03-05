@@ -1,7 +1,7 @@
 /**
  * Consent Document
  *
- * Informed consent text for the HomeFlow BPH study.
+ * Informed consent text for the StreamSync BPH study.
  * Structured for display in the consent screen.
  *
  * Note: This is a template - actual consent text should be
@@ -35,7 +35,7 @@ export interface ConsentDocument {
 }
 
 /**
- * HomeFlow study consent document
+ * StreamSync study consent document
  */
 export const CONSENT_DOCUMENT: ConsentDocument = {
   version: CONSENT_VERSION,
@@ -177,7 +177,7 @@ export const DATA_PERMISSIONS_SUMMARY = [
  * Study coordinator contact info for the Profile screen.
  */
 export const STUDY_COORDINATOR = {
-  name: 'HomeFlow Study Team',
+  name: 'StreamSync Study Team',
   role: 'Study Coordinator',
   email: STUDY_INFO.contactEmail,
   phone: STUDY_INFO.contactPhone,

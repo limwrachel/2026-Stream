@@ -30,6 +30,10 @@ export const STORAGE_KEYS = {
 
   // Permissions
   PERMISSIONS_STATUS: '@homeflow_permissions_status',
+
+  // Notification tracking (last time we fired each reminder, to avoid spam)
+  LAST_NOTIFICATION_HEALTHKIT: '@homeflow_last_notification_healthkit',
+  LAST_NOTIFICATION_THRONE: '@homeflow_last_notification_throne',
 } as const;
 
 // Legacy keys for backwards compatibility
@@ -43,6 +47,7 @@ export enum OnboardingStep {
   WELCOME = 'welcome',
   CHAT = 'chat', // Eligibility screening
   CONSENT = 'consent',
+  ACCOUNT = 'account',
   PERMISSIONS = 'permissions',
   HEALTH_DATA_TEST = 'health_data_test', // Dev-only: test HealthKit + Clinical Records queries
   MEDICAL_HISTORY = 'medical_history', // Medical history collection (chatbot)
@@ -57,6 +62,7 @@ export const ONBOARDING_FLOW: OnboardingStep[] = [
   OnboardingStep.WELCOME,
   OnboardingStep.CHAT,
   OnboardingStep.CONSENT,
+  OnboardingStep.ACCOUNT,
   OnboardingStep.PERMISSIONS,
   OnboardingStep.HEALTH_DATA_TEST,
   OnboardingStep.MEDICAL_HISTORY,
@@ -78,7 +84,7 @@ export const CONSENT_VERSION = '1.0.0';
  * Study information
  */
 export const STUDY_INFO = {
-  name: 'HomeFlow BPH Study',
+  name: 'StreamSync BPH Study',
   institution: 'Stanford University',
   principalInvestigator: 'Ryan Sun, MD',
   irbProtocol: 'IRB# -----',

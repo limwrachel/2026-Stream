@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   StyleSheet,
-  useColorScheme,
   Platform,
   View,
   Text,
@@ -13,15 +12,17 @@ import { useHealthSummary } from '@/hooks/use-health-summary';
 import { SleepSection } from '@/components/health/SleepSection';
 import { ActivitySection } from '@/components/health/ActivitySection';
 import { VitalsSection } from '@/components/health/VitalsSection';
+import { useAppTheme } from '@/lib/theme/ThemeContext';
 
 export default function HealthScreen() {
-  const isDark = useColorScheme() === 'dark';
+  const { theme } = useAppTheme();
+  const { colors: c } = theme;
 
   if (Platform.OS !== 'ios') {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <View style={styles.centered}>
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+          <Text style={[styles.emptyText, { color: c.textTertiary }]}>
             Health data is available on iPhone
           </Text>
         </View>
@@ -33,14 +34,15 @@ export default function HealthScreen() {
 }
 
 function HealthContent() {
-  const isDark = useColorScheme() === 'dark';
+  const { theme } = useAppTheme();
+  const { colors: c } = theme;
   const { summary, isLoading, error } = useHealthSummary();
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={isDark ? '#98989D' : '#8E8E93'} />
+          <ActivityIndicator size="large" color="#8E8E93" />
         </View>
       </SafeAreaView>
     );
@@ -48,9 +50,9 @@ function HealthContent() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
         <View style={styles.centered}>
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+          <Text style={[styles.emptyText, { color: c.textTertiary }]}>
             {error}
           </Text>
         </View>
@@ -60,9 +62,9 @@ function HealthContent() {
 
   if (!summary) {
     return (
-      <SafeAreaView style={[styles.container, isDark && styles.containerDark]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
         <View style={styles.centered}>
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+          <Text style={[styles.emptyText, { color: c.textTertiary }]}>
             No health data available yet. Wear your Apple Watch today and check back later.
           </Text>
         </View>
@@ -71,16 +73,16 @@ function HealthContent() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.dateLabel, isDark && styles.dateLabelDark]}>
+        <Text style={[styles.dateLabel, { color: c.textTertiary }]}>
           {summary.dateLabel}
         </Text>
-        <Text style={[styles.greeting, isDark && styles.greetingDark]}>
+        <Text style={[styles.greeting, { color: c.textPrimary }]}>
           {summary.greeting}
         </Text>
 
@@ -105,10 +107,6 @@ function HealthContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F8',
-  },
-  containerDark: {
-    backgroundColor: '#0A0E1A',
   },
   centered: {
     flex: 1,
@@ -120,43 +118,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   dateLabel: {
-    fontSize: 14,
-    color: '#7A7F8E',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: '500',
-  },
-  dateLabelDark: {
-    color: '#8B92A8',
+    fontSize: 13,
+    fontWeight: '400',
+    marginBottom: 2,
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#2C3E50',
-    fontFamily: 'Georgia',
-    marginTop: 4,
-  },
-  greetingDark: {
-    color: '#C8D6E5',
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: 0.37,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#7A7F8E',
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
-  },
-  emptyTextDark: {
-    color: '#8B92A8',
+    lineHeight: 22,
   },
   spacerLarge: {
-    height: 24,
+    height: 20,
   },
   spacerMedium: {
-    height: 16,
+    height: 12,
   },
   spacerBottom: {
     height: 32,

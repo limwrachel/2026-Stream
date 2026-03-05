@@ -65,6 +65,9 @@ export default function OnboardingRouter() {
     case OnboardingStep.CONSENT:
       return <Redirect href={'/(onboarding)/consent' as Href} />;
 
+    case OnboardingStep.ACCOUNT:
+      return <Redirect href={'/(onboarding)/account' as Href} />;
+
     case OnboardingStep.PERMISSIONS:
       return <Redirect href={'/(onboarding)/permissions' as Href} />;
 

@@ -105,7 +105,7 @@ export default function SignupScreen() {
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
             <Text style={[styles.subtitle, { color: colors.icon }]}>
-              Sign up to get started with HomeFlow
+              Sign up to get started with StreamSync
             </Text>
           </View>
 

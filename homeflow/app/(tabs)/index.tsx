@@ -6,20 +6,22 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  useColorScheme,
   Modal,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { notifyOnboardingComplete } from '@/hooks/use-onboarding-status';
 import { useSurgeryDate } from '@/hooks/use-surgery-date';
 import { useWatchUsage } from '@/hooks/use-watch-usage';
 import { SurgeryCompleteModal } from '@/components/home/SurgeryCompleteModal';
+import { useAppTheme } from '@/lib/theme/ThemeContext';
 
 export default function HomeScreen() {
-  const isDark = useColorScheme() === 'dark';
+  const { theme } = useAppTheme();
+  const { isDark, colors: t } = theme;
   const surgery = useSurgeryDate();
   const watch = useWatchUsage();
   const [showSurgeryModal, setShowSurgeryModal] = useState(false);
@@ -52,69 +54,70 @@ export default function HomeScreen() {
   const showWatchReminder = !watch.isLoading && !watch.watchWornRecently && !watchDismissed;
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header — Apple Health style: date above, large title below */}
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
-            <Text style={[styles.dateLabel, isDark && styles.dateLabelDark]}>
+            <Text style={[styles.dateLabel, { color: t.textTertiary }]}>
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
-                month: 'short',
+                month: 'long',
                 day: 'numeric',
               })}
             </Text>
-            <Text style={[styles.greeting, isDark && styles.greetingDark]}>
-              Welcome to HomeFlow
+            <Text style={[styles.greetingNormal, { color: t.textPrimary }]}>
+              Welcome to
+            </Text>
+            <Text style={[styles.greeting, { color: t.textPrimary }]}>
+              StreamSync
             </Text>
           </View>
           {__DEV__ && (
             <TouchableOpacity
-              style={[styles.devPill, isDark && styles.devPillDark]}
+              style={[styles.devPill, { backgroundColor: t.secondaryFill }]}
               onPress={() => setShowDevSheet(true)}
               activeOpacity={0.7}
             >
-              <IconSymbol name="wrench.fill" size={14} color={isDark ? '#8B92A8' : '#7A7F8E'} />
-              <Text style={[styles.devPillText, isDark && styles.devPillTextDark]}>Dev</Text>
+              <IconSymbol name="wrench.fill" size={13} color={t.textTertiary} />
+              <Text style={[styles.devPillText, { color: t.textTertiary }]}>Dev</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Surgery Date Card */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
+        <View style={[styles.card, styles.accentBorder, { backgroundColor: t.card, borderLeftColor: t.accent }]}>
           <View style={styles.cardHeader}>
-            <IconSymbol
-              name="calendar.badge.clock"
-              size={16}
-              color={isDark ? '#A0A8D0' : '#7B8CDE'}
-            />
-            <Text style={[styles.cardLabel, isDark && styles.cardLabelDark]}>
+            <IconSymbol name="calendar.badge.clock" size={17} color={t.accent} />
+            <Text style={[styles.cardLabel, { color: t.textSecondary }]}>
               Surgery date
             </Text>
             {surgery.isPlaceholder && __DEV__ && (
-              <View style={[styles.placeholderBadge, isDark && styles.placeholderBadgeDark]}>
-                <Text style={styles.placeholderBadgeText}>Placeholder</Text>
+              <View style={[styles.placeholderBadge, { backgroundColor: t.secondaryFill }]}>
+                <Text style={[styles.placeholderBadgeText, { color: t.textTertiary }]}>
+                  Placeholder
+                </Text>
               </View>
             )}
           </View>
           {surgery.isLoading ? (
-            <Text style={[styles.cardValue, isDark && styles.cardValueDark]}>Loading...</Text>
+            <Text style={[styles.cardValue, { color: t.textPrimary }]}>Loading...</Text>
           ) : (
             <>
-              <Text style={[styles.cardValue, isDark && styles.cardValueDark]}>
+              <Text style={[styles.cardValue, { color: t.textPrimary }]}>
                 {surgery.dateLabel}
               </Text>
               {surgery.date && !surgery.hasPassed && (
-                <Text style={[styles.cardSubtext, isDark && styles.cardSubtextDark]}>
+                <Text style={[styles.cardSubtext, { color: t.textTertiary }]}>
                   {daysUntil(surgery.date)}
                 </Text>
               )}
               {surgery.hasPassed && (
-                <Text style={[styles.cardSubtext, isDark && styles.cardSubtextDark]}>
+                <Text style={[styles.cardSubtext, { color: t.textTertiary }]}>
                   Surgery completed — tracking recovery
                 </Text>
               )}
@@ -124,37 +127,35 @@ export default function HomeScreen() {
 
         {/* Study Timeline Card */}
         {!surgery.isLoading && (
-          <View style={[styles.card, isDark && styles.cardDark]}>
+          <View style={[styles.card, styles.accentBorder, { backgroundColor: t.card, borderLeftColor: t.semanticSuccess }]}>
             <View style={styles.cardHeader}>
-              <IconSymbol
-                name="calendar"
-                size={16}
-                color={isDark ? '#8CBCAA' : '#5A9E87'}
-              />
-              <Text style={[styles.cardLabel, { color: isDark ? '#8CBCAA' : '#5A9E87' }]}>
+              <IconSymbol name="calendar" size={17} color={t.semanticSuccess} />
+              <Text style={[styles.cardLabel, { color: t.textSecondary }]}>
                 Study timeline
               </Text>
               {surgery.isPlaceholder && __DEV__ && (
-                <View style={[styles.placeholderBadge, isDark && styles.placeholderBadgeDark]}>
-                  <Text style={styles.placeholderBadgeText}>Placeholder</Text>
+                <View style={[styles.placeholderBadge, { backgroundColor: t.secondaryFill }]}>
+                  <Text style={[styles.placeholderBadgeText, { color: t.textTertiary }]}>
+                    Placeholder
+                  </Text>
                 </View>
               )}
             </View>
             <View style={styles.timelineRow}>
               <View style={styles.timelineItem}>
-                <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
+                <Text style={[styles.timelineLabel, { color: t.textTertiary }]}>
                   Start
                 </Text>
-                <Text style={[styles.timelineValue, isDark && styles.timelineValueDark]}>
+                <Text style={[styles.timelineValue, { color: t.textPrimary }]}>
                   {surgery.studyStartLabel}
                 </Text>
               </View>
-              <View style={[styles.timelineDivider, isDark && styles.timelineDividerDark]} />
+              <View style={[styles.timelineDivider, { backgroundColor: t.separator }]} />
               <View style={styles.timelineItem}>
-                <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
+                <Text style={[styles.timelineLabel, { color: t.textTertiary }]}>
                   End
                 </Text>
-                <Text style={[styles.timelineValue, isDark && styles.timelineValueDark]}>
+                <Text style={[styles.timelineValue, { color: t.textPrimary }]}>
                   {surgery.studyEndLabel}
                 </Text>
               </View>
@@ -164,18 +165,14 @@ export default function HomeScreen() {
 
         {/* Watch Reminder */}
         {showWatchReminder && (
-          <View style={[styles.reminderCard, isDark && styles.reminderCardDark]}>
+          <View style={[styles.reminderCard, { backgroundColor: t.card }]}>
             <View style={styles.reminderContent}>
-              <IconSymbol
-                name="applewatch"
-                size={20}
-                color={isDark ? '#8CBCAA' : '#5A9E87'}
-              />
+              <IconSymbol name="applewatch" size={20} color={t.semanticSuccess} />
               <View style={styles.reminderTextContainer}>
-                <Text style={[styles.reminderTitle, isDark && styles.reminderTitleDark]}>
+                <Text style={[styles.reminderTitle, { color: t.textPrimary }]}>
                   Wear your Apple Watch today
                 </Text>
-                <Text style={[styles.reminderBody, isDark && styles.reminderBodyDark]}>
+                <Text style={[styles.reminderBody, { color: t.textTertiary }]}>
                   We use watch data to track your activity and sleep patterns.
                 </Text>
               </View>
@@ -183,11 +180,7 @@ export default function HomeScreen() {
                 onPress={() => setWatchDismissed(true)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <IconSymbol
-                  name="xmark"
-                  size={14}
-                  color={isDark ? '#5E7A70' : '#8E8E93'}
-                />
+                <IconSymbol name="xmark" size={13} color={t.textTertiary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -195,24 +188,41 @@ export default function HomeScreen() {
 
         {/* Watch all set */}
         {!watch.isLoading && watch.watchWornRecently && (
-          <View style={[styles.allSetCard, isDark && styles.allSetCardDark]}>
-            <IconSymbol
-              name="checkmark.circle.fill"
-              size={18}
-              color={isDark ? '#8CBCAA' : '#5A9E87'}
-            />
-            <Text style={[styles.allSetText, isDark && styles.allSetTextDark]}>
+          <View style={[styles.allSetCard, { backgroundColor: t.card }]}>
+            <IconSymbol name="checkmark.circle.fill" size={18} color={t.semanticSuccess} />
+            <Text style={[styles.allSetText, { color: t.textPrimary }]}>
               Apple Watch data is syncing — all set
             </Text>
           </View>
         )}
 
+        {/* Recovery Instructions card — shown after surgery */}
+        {surgery.hasPassed && (
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => router.push('/(tabs)/recovery')}
+            style={[styles.card, styles.accentBorder, { backgroundColor: t.card, borderLeftColor: t.accent }]}
+          >
+            <View style={styles.cardHeader}>
+              <IconSymbol name="heart.fill" size={17} color={t.accent} />
+              <Text style={[styles.cardLabel, { color: t.textSecondary }]}>Recovery plan</Text>
+              <IconSymbol name="chevron.right" size={13} color={t.textTertiary} style={{ marginLeft: 'auto' }} />
+            </View>
+            <Text style={[styles.cardValue, { color: t.textPrimary }]}>
+              Your Recovery Plan
+            </Text>
+            <Text style={[styles.cardSubtext, { color: t.textTertiary }]}>
+              Stanford discharge instructions · tap to review
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Study info */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
-            Your study
+        <View style={[styles.card, styles.accentBorder, { backgroundColor: t.card, borderLeftColor: isDark ? '#BF5AF2' : '#AF52DE' }]}>
+          <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>
+            Your Study
           </Text>
-          <Text style={[styles.studyBody, isDark && styles.studyBodyDark]}>
+          <Text style={[styles.studyBody, { color: t.textSecondary }]}>
             Track your BPH symptoms, voiding patterns, and recovery progress
             throughout the study. Your daily data helps your care team
             understand your health patterns.
@@ -238,48 +248,48 @@ export default function HomeScreen() {
         >
           <Pressable style={styles.sheetOverlay} onPress={() => setShowDevSheet(false)}>
             <Pressable
-              style={[styles.sheetContent, isDark && styles.sheetContentDark]}
+              style={[styles.sheetContent, { backgroundColor: t.card }]}
               onPress={() => {}}
             >
               <View style={styles.sheetHandle} />
-              <Text style={[styles.sheetTitle, isDark && styles.sheetTitleDark]}>
+              <Text style={[styles.sheetTitle, { color: t.textTertiary }]}>
                 Developer Tools
               </Text>
 
               <TouchableOpacity
-                style={[styles.sheetButton, isDark && styles.sheetButtonDark]}
+                style={[styles.sheetButton, { backgroundColor: t.background }]}
                 onPress={() => {
                   setShowDevSheet(false);
                   setTimeout(() => setShowSurgeryModal(true), 300);
                 }}
                 activeOpacity={0.7}
               >
-                <IconSymbol name="checkmark.circle.fill" size={18} color={isDark ? '#8CBCAA' : '#5A9E87'} />
-                <Text style={[styles.sheetButtonText, isDark && styles.sheetButtonTextDark]}>
+                <IconSymbol name="checkmark.circle.fill" size={18} color={t.semanticSuccess} />
+                <Text style={[styles.sheetButtonText, { color: t.textPrimary }]}>
                   Trigger Surgery Complete
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.sheetButton, isDark && styles.sheetButtonDark]}
+                style={[styles.sheetButton, { backgroundColor: t.background }]}
                 onPress={() => {
                   setShowDevSheet(false);
                   setTimeout(handleResetOnboarding, 300);
                 }}
                 activeOpacity={0.7}
               >
-                <IconSymbol name="sparkles" size={18} color={isDark ? '#A0A8D0' : '#7B8CDE'} />
-                <Text style={[styles.sheetButtonText, isDark && styles.sheetButtonTextDark]}>
+                <IconSymbol name="sparkles" size={18} color={t.accent} />
+                <Text style={[styles.sheetButtonText, { color: t.textPrimary }]}>
                   Reset Onboarding
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.sheetCancel, isDark && styles.sheetCancelDark]}
+                style={styles.sheetCancel}
                 onPress={() => setShowDevSheet(false)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.sheetCancelText, isDark && styles.sheetCancelTextDark]}>
+                <Text style={[styles.sheetCancelText, { color: t.accent }]}>
                   Close
                 </Text>
               </TouchableOpacity>
@@ -305,48 +315,40 @@ function daysUntil(dateStr: string): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F8',
-  },
-  containerDark: {
-    backgroundColor: '#0A0E1A',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
 
-  // Header
+  // Header — matches Apple Health large-title pattern
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   headerText: {
     flex: 1,
   },
   dateLabel: {
-    fontSize: 14,
-    color: '#7A7F8E',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '400',
+    marginBottom: 2,
   },
-  dateLabelDark: {
-    color: '#8B92A8',
+  greetingNormal: {
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: 0.37,
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#2C3E50',
-    fontFamily: 'Georgia',
-    marginTop: 4,
-  },
-  greetingDark: {
-    color: '#C8D6E5',
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: 0.37,
+    fontStyle: 'italic',
   },
 
   // Dev pill
@@ -354,79 +356,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E0E2EA',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
-    marginTop: 4,
-  },
-  devPillDark: {
-    backgroundColor: '#1A1E2E',
+    marginTop: 20,
   },
   devPillText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#7A7F8E',
-  },
-  devPillTextDark: {
-    color: '#8B92A8',
+    fontWeight: '500',
   },
 
-  // Cards
+  // Cards — iOS grouped-style
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  cardDark: {
-    backgroundColor: '#141828',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   cardLabel: {
     fontSize: 13,
-    color: '#7B8CDE',
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
-  cardLabelDark: {
-    color: '#A0A8D0',
+  accentBorder: {
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
   cardValue: {
     fontSize: 22,
-    fontWeight: '600',
-    color: '#2C3E50',
-    fontFamily: 'Georgia',
-  },
-  cardValueDark: {
-    color: '#D4D8E8',
+    fontWeight: '700',
+    letterSpacing: 0.35,
   },
   cardSubtext: {
-    fontSize: 14,
-    color: '#7A7F8E',
+    fontSize: 15,
+    fontWeight: '400',
     marginTop: 4,
   },
-  cardSubtextDark: {
-    color: '#8B92A8',
-  },
   placeholderBadge: {
-    backgroundColor: '#E8E0F0',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 6,
     marginLeft: 'auto',
   },
-  placeholderBadgeDark: {
-    backgroundColor: '#1E1828',
-  },
   placeholderBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#9B8AB8',
+    fontSize: 11,
+    fontWeight: '500',
   },
 
   // Study timeline
@@ -438,43 +418,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7A7F8E',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '400',
     marginBottom: 2,
   },
-  timelineLabelDark: {
-    color: '#6B7394',
-  },
   timelineValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#2C3E50',
-  },
-  timelineValueDark: {
-    color: '#D4D8E8',
   },
   timelineDivider: {
-    width: 1,
+    width: StyleSheet.hairlineWidth,
     height: 32,
-    backgroundColor: '#D8DAE2',
     marginHorizontal: 16,
-  },
-  timelineDividerDark: {
-    backgroundColor: '#1E2236',
   },
 
   // Watch reminder
   reminderCard: {
-    backgroundColor: '#ECF4F0',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-  },
-  reminderCardDark: {
-    backgroundColor: '#0F1E1A',
+    marginBottom: 12,
   },
   reminderContent: {
     flexDirection: 'row',
@@ -487,19 +449,11 @@ const styles = StyleSheet.create({
   reminderTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#2A3E36',
     marginBottom: 2,
   },
-  reminderTitleDark: {
-    color: '#CDDDD6',
-  },
   reminderBody: {
-    fontSize: 14,
-    color: '#5E7A70',
-    lineHeight: 20,
-  },
-  reminderBodyDark: {
-    color: '#8EAAA0',
+    fontSize: 13,
+    lineHeight: 18,
   },
 
   // All set
@@ -507,41 +461,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#ECF4F0',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-  },
-  allSetCardDark: {
-    backgroundColor: '#0F1E1A',
+    marginBottom: 12,
   },
   allSetText: {
     fontSize: 15,
-    color: '#2A3E36',
-    fontWeight: '500',
-  },
-  allSetTextDark: {
-    color: '#CDDDD6',
+    fontWeight: '400',
   },
 
   // Study section
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#2C3E50',
-    fontFamily: 'Georgia',
-    marginBottom: 8,
-  },
-  sectionTitleDark: {
-    color: '#C8D6E5',
+    marginBottom: 6,
   },
   studyBody: {
     fontSize: 15,
-    color: '#5E6B7A',
     lineHeight: 22,
-  },
-  studyBodyDark: {
-    color: '#8B92A8',
   },
 
   // Dev tools sheet
@@ -551,65 +488,45 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   sheetContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    padding: 20,
     paddingBottom: 40,
-  },
-  sheetContentDark: {
-    backgroundColor: '#1A1E2E',
   },
   sheetHandle: {
     width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D0D0D0',
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#C7C7CC',
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sheetTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#7A7F8E',
+    letterSpacing: 0.2,
     marginBottom: 16,
     textAlign: 'center',
-  },
-  sheetTitleDark: {
-    color: '#8B92A8',
   },
   sheetButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#F0F2F8',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  sheetButtonDark: {
-    backgroundColor: '#0F1320',
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 8,
   },
   sheetButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#2C3E50',
-  },
-  sheetButtonTextDark: {
-    color: '#C8D6E5',
+    fontSize: 17,
+    fontWeight: '400',
   },
   sheetCancel: {
     alignItems: 'center',
     padding: 14,
     marginTop: 4,
   },
-  sheetCancelDark: {},
   sheetCancelText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#8E8E93',
-  },
-  sheetCancelTextDark: {
-    color: '#6B7394',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

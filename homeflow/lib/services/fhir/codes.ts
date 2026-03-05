@@ -15,6 +15,7 @@ export const LOINC = {
   URINALYSIS_PANEL: '24356-8',
   PVR: '9187-6',
   UROFLOW_QMAX: '80963-5',
+  VOLUME_VOIDED: '9192-6',
 } as const;
 
 // ── SNOMED CT Codes (Conditions) ────────────────────────────────────

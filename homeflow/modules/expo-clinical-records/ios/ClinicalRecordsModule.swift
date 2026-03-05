@@ -5,15 +5,21 @@ public class ClinicalRecordsModule: Module {
   private lazy var healthStore = HKHealthStore()
 
   // Map short string identifiers to HKClinicalTypeIdentifier
-  private static let typeMap: [String: HKClinicalTypeIdentifier] = [
-    "allergyRecord": .allergyRecord,
-    "conditionRecord": .conditionRecord,
-    "immunizationRecord": .immunizationRecord,
-    "labResultRecord": .labResultRecord,
-    "medicationRecord": .medicationRecord,
-    "procedureRecord": .procedureRecord,
-    "vitalSignRecord": .vitalSignRecord,
-  ]
+  private static let typeMap: [String: HKClinicalTypeIdentifier] = {
+    var map: [String: HKClinicalTypeIdentifier] = [
+      "allergyRecord": .allergyRecord,
+      "conditionRecord": .conditionRecord,
+      "immunizationRecord": .immunizationRecord,
+      "labResultRecord": .labResultRecord,
+      "medicationRecord": .medicationRecord,
+      "procedureRecord": .procedureRecord,
+      "vitalSignRecord": .vitalSignRecord,
+    ]
+    if #available(iOS 16.4, *) {
+      map["clinicalNoteRecord"] = .clinicalNoteRecord
+    }
+    return map
+  }()
 
   public func definition() -> ModuleDefinition {
     Name("ExpoClinicalRecords")

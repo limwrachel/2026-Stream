@@ -56,6 +56,12 @@ export default function OnboardingLayout() {
         }}
       />
       <Stack.Screen
+        name="account"
+        options={{
+          animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
         name="permissions"
         options={{
           animation: 'slide_from_right',
@@ -63,6 +69,12 @@ export default function OnboardingLayout() {
       />
       <Stack.Screen
         name="health-data-test"
+        options={{
+          animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
+        name="fhir-parser-test"
         options={{
           animation: 'slide_from_right',
         }}

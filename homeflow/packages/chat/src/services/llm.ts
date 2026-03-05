@@ -1,6 +1,11 @@
 /**
  * Multi-provider LLM client using Vercel AI SDK
  * Supports OpenAI, Anthropic (Claude), and Google (Gemini)
+ *
+ * TODO: Once Firebase backend is set up, move OpenAI calls to a Cloud
+ * Function or Cloud Run endpoint and remove client-side API key usage.
+ * OpenAI API keys must not live in the client bundle — production
+ * deployment requires server-side key storage (Firebase Secret Manager).
  */
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';

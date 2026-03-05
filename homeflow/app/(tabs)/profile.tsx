@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  useColorScheme,
   Modal,
   Pressable,
   Linking,
@@ -15,14 +14,22 @@ import { useRouter, Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/hooks/use-auth';
+import { triggerTestNotification, requestNotificationPermissions } from '@/lib/services/notification-service';
 import {
   CONSENT_PROFILE_SUMMARY,
   DATA_PERMISSIONS_SUMMARY,
   STUDY_COORDINATOR,
 } from '@/lib/consent/consent-document';
+import { useAppTheme, type AppearanceMode } from '@/lib/theme/ThemeContext';
+
+const APPEARANCE_OPTIONS: { value: AppearanceMode; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 export default function ProfileScreen() {
-  const isDark = useColorScheme() === 'dark';
+  const { theme, appearance, setAppearance } = useAppTheme();
+  const { colors: c } = theme;
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [showConsentModal, setShowConsentModal] = useState(false);
@@ -46,67 +53,89 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, isDark && styles.containerDark]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.screenTitle, isDark && styles.screenTitleDark]}>
+        <Text style={[styles.screenTitle, { color: c.textPrimary }]}>
           Profile
         </Text>
 
         {/* 1. Account */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
+        <View style={[styles.card, { backgroundColor: c.card }]}>
           <View style={styles.cardHeader}>
-            <IconSymbol
-              name="person.circle.fill"
-              size={16}
-              color={isDark ? '#8B92A8' : '#7A7F8E'}
-            />
-            <Text style={[styles.cardLabel, isDark && styles.cardLabelDark]}>Account</Text>
+            <IconSymbol name="person.circle.fill" size={17} color={c.textTertiary} />
+            <Text style={[styles.cardLabel, { color: c.textTertiary }]}>Account</Text>
           </View>
           {user ? (
             <>
-              <Text style={[styles.accountName, isDark && styles.accountNameDark]}>
+              <Text style={[styles.accountName, { color: c.textPrimary }]}>
                 {user.firstName} {user.lastName}
               </Text>
-              <Text style={[styles.accountEmail, isDark && styles.accountEmailDark]}>
+              <Text style={[styles.accountEmail, { color: c.textSecondary }]}>
                 {user.email}
               </Text>
             </>
           ) : (
-            <Text style={[styles.placeholderText, isDark && styles.placeholderTextDark]}>
+            <Text style={[styles.placeholderText, { color: c.textTertiary }]}>
               Not signed in.
             </Text>
           )}
         </View>
 
-        {/* 2. Study Consent & Data Permissions — compact tappable rows */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
+        {/* 2. Appearance — iOS-style segmented control */}
+        <View style={[styles.card, { backgroundColor: c.card }]}>
+          <View style={styles.cardHeader}>
+            <IconSymbol name="circle.lefthalf.filled" size={17} color={c.textSecondary} />
+            <Text style={[styles.cardLabel, { color: c.textSecondary }]}>Appearance</Text>
+          </View>
+          <View style={[styles.segmentedControl, { backgroundColor: c.secondaryFill }]}>
+            {APPEARANCE_OPTIONS.map((opt) => {
+              const isSelected = appearance === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.segment,
+                    isSelected && [styles.segmentSelected, { backgroundColor: c.card }],
+                  ]}
+                  onPress={() => setAppearance(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      { color: c.textSecondary },
+                      isSelected && { color: c.textPrimary, fontWeight: '600' },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 3. Study Consent & Data Permissions — iOS Settings-style rows */}
+        <View style={[styles.card, { backgroundColor: c.card }]}>
           <TouchableOpacity
             style={styles.rowButton}
             onPress={() => setShowConsentModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.rowLeft}>
-              <IconSymbol
-                name="doc.text.fill"
-                size={18}
-                color={isDark ? '#A0A8D0' : '#7B8CDE'}
-              />
-              <Text style={[styles.rowLabel, { color: isDark ? '#A0A8D0' : '#7B8CDE' }]}>
-                Study consent
+              <IconSymbol name="doc.text.fill" size={18} color={c.accent} />
+              <Text style={[styles.rowLabel, { color: c.textPrimary }]}>
+                Study Consent
               </Text>
             </View>
-            <IconSymbol
-              name="chevron.right"
-              size={14}
-              color={isDark ? '#A0A8D0' : '#7B8CDE'}
-            />
+            <IconSymbol name="chevron.right" size={14} color={c.textTertiary} />
           </TouchableOpacity>
 
-          <View style={[styles.rowDivider, isDark && styles.rowDividerDark]} />
+          <View style={[styles.rowDivider, { backgroundColor: c.separator }]} />
 
           <TouchableOpacity
             style={styles.rowButton}
@@ -114,23 +143,15 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.rowLeft}>
-              <IconSymbol
-                name="lock.shield"
-                size={18}
-                color={isDark ? '#8CBCAA' : '#5A9E87'}
-              />
-              <Text style={[styles.rowLabel, { color: isDark ? '#8CBCAA' : '#5A9E87' }]}>
-                Data permissions
+              <IconSymbol name="lock.shield" size={18} color={c.semanticSuccess} />
+              <Text style={[styles.rowLabel, { color: c.textPrimary }]}>
+                Data Permissions
               </Text>
             </View>
-            <IconSymbol
-              name="chevron.right"
-              size={14}
-              color={isDark ? '#8CBCAA' : '#5A9E87'}
-            />
+            <IconSymbol name="chevron.right" size={14} color={c.textTertiary} />
           </TouchableOpacity>
 
-          <View style={[styles.rowDivider, isDark && styles.rowDividerDark]} />
+          <View style={[styles.rowDivider, { backgroundColor: c.separator }]} />
 
           <TouchableOpacity
             style={styles.rowButton}
@@ -138,70 +159,134 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.rowLeft}>
-              <IconSymbol
-                name="doc.text.fill"
-                size={18}
-                color={isDark ? '#8B92A8' : '#7A7F8E'}
-              />
-              <Text style={[styles.rowLabel, { color: isDark ? '#8B92A8' : '#7A7F8E' }]}>
-                View full consent document
+              <IconSymbol name="doc.text.fill" size={18} color={c.textTertiary} />
+              <Text style={[styles.rowLabel, { color: c.textPrimary }]}>
+                View Full Consent Document
               </Text>
             </View>
-            <IconSymbol
-              name="chevron.right"
-              size={14}
-              color={isDark ? '#8B92A8' : '#7A7F8E'}
-            />
+            <IconSymbol name="chevron.right" size={14} color={c.textTertiary} />
           </TouchableOpacity>
         </View>
 
         {/* 4. Contact / Support */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
+        <View style={[styles.card, { backgroundColor: c.card }]}>
           <View style={styles.cardHeader}>
-            <IconSymbol
-              name="phone.fill"
-              size={16}
-              color={isDark ? '#C4949A' : '#B07178'}
-            />
-            <Text style={[styles.cardLabel, { color: isDark ? '#C4949A' : '#B07178' }]}>
+            <IconSymbol name="phone.fill" size={17} color={c.textSecondary} />
+            <Text style={[styles.cardLabel, { color: c.textSecondary }]}>
               Contact for study questions
             </Text>
           </View>
-          <Text style={[styles.contactName, isDark && styles.contactNameDark]}>
+          <Text style={[styles.contactName, { color: c.textPrimary }]}>
             {STUDY_COORDINATOR.name}
           </Text>
-          <Text style={[styles.contactRole, isDark && styles.contactRoleDark]}>
+          <Text style={[styles.contactRole, { color: c.textTertiary }]}>
             {STUDY_COORDINATOR.role}
           </Text>
 
           <View style={styles.contactActions}>
             <TouchableOpacity
-              style={[styles.contactButton, isDark && styles.contactButtonDark]}
+              style={[styles.contactButton, { backgroundColor: c.background }]}
               onPress={() => Linking.openURL(`mailto:${STUDY_COORDINATOR.email}`)}
               activeOpacity={0.7}
             >
-              <IconSymbol name="envelope.fill" size={15} color={isDark ? '#C4949A' : '#B07178'} />
-              <Text style={[styles.contactButtonText, isDark && styles.contactButtonTextDark]}>
+              <IconSymbol name="envelope.fill" size={15} color={c.accent} />
+              <Text style={[styles.contactButtonText, { color: c.textSecondary }]}>
                 {STUDY_COORDINATOR.email}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.contactButton, isDark && styles.contactButtonDark]}
+              style={[styles.contactButton, { backgroundColor: c.background }]}
               onPress={() => Linking.openURL(`tel:${STUDY_COORDINATOR.phone}`)}
               activeOpacity={0.7}
             >
-              <IconSymbol name="phone.fill" size={15} color={isDark ? '#C4949A' : '#B07178'} />
-              <Text style={[styles.contactButtonText, isDark && styles.contactButtonTextDark]}>
+              <IconSymbol name="phone.fill" size={15} color={c.accent} />
+              <Text style={[styles.contactButtonText, { color: c.textSecondary }]}>
                 {STUDY_COORDINATOR.phone}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Developer menu — visible in __DEV__ builds only */}
+        {__DEV__ && (
+          <View style={[styles.card, { backgroundColor: c.card }]}>
+            <View style={styles.cardHeader}>
+              <IconSymbol name={'hammer.fill' as any} size={17} color={c.semanticWarning} />
+              <Text style={[styles.cardLabel, { color: c.semanticWarning }]}>
+                Developer
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.rowButton}
+              onPress={() => router.push('/fhir-parser-test' as Href)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.rowLeft}>
+                <IconSymbol name={'doc.text.magnifyingglass' as any} size={18} color={c.accent} />
+                <Text style={[styles.rowLabel, { color: c.textPrimary }]}>
+                  FHIR Parser Test
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={14} color={c.textTertiary} />
+            </TouchableOpacity>
+
+            <View style={[styles.rowDivider, { backgroundColor: c.separator, marginVertical: 4 }]} />
+
+            <TouchableOpacity
+              style={[styles.devButton, { backgroundColor: c.secondaryFill }]}
+              onPress={async () => {
+                try {
+                  const granted = await requestNotificationPermissions();
+                  if (!granted) {
+                    Alert.alert('Permission Denied', 'Enable notifications in Settings → HomeFlow → Notifications.');
+                    return;
+                  }
+                  await triggerTestNotification('healthkit');
+                  Alert.alert('Sent', 'HealthKit reminder notification fired. Background the app to see the banner.');
+                } catch (e: any) {
+                  Alert.alert('Error', e?.message ?? 'Failed to send notification.');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name="heart.fill" size={16} color={c.semanticWarning} />
+              <Text style={[styles.devButtonText, { color: c.semanticWarning }]}>
+                Test HealthKit Reminder
+              </Text>
+            </TouchableOpacity>
+
+            <View style={[styles.rowDivider, { backgroundColor: c.separator, marginVertical: 4 }]} />
+
+            <TouchableOpacity
+              style={[styles.devButton, { backgroundColor: c.secondaryFill }]}
+              onPress={async () => {
+                try {
+                  const granted = await requestNotificationPermissions();
+                  if (!granted) {
+                    Alert.alert('Permission Denied', 'Enable notifications in Settings → HomeFlow → Notifications.');
+                    return;
+                  }
+                  await triggerTestNotification('throne');
+                  Alert.alert('Sent', 'Throne reminder notification fired. Background the app to see the banner.');
+                } catch (e: any) {
+                  Alert.alert('Error', e?.message ?? 'Failed to send notification.');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <IconSymbol name="drop.fill" size={16} color={c.semanticWarning} />
+              <Text style={[styles.devButtonText, { color: c.semanticWarning }]}>
+                Test Throne Reminder
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Sign Out */}
         <TouchableOpacity
-          style={[styles.signOutButton, isDark && styles.signOutButtonDark]}
+          style={[styles.signOutButton, { backgroundColor: c.card }]}
           onPress={handleSignOut}
           activeOpacity={0.7}
         >
@@ -224,29 +309,29 @@ export default function ProfileScreen() {
           onPress={() => setShowConsentModal(false)}
         >
           <Pressable
-            style={[styles.modalContent, isDark && styles.modalContentDark]}
+            style={[styles.modalContent, { backgroundColor: c.card }]}
             onPress={() => {}}
           >
             <View style={styles.modalHandle} />
             <IconSymbol
               name="doc.text.fill"
               size={32}
-              color={isDark ? '#A0A8D0' : '#7B8CDE'}
+              color={c.accent}
               style={{ alignSelf: 'center', marginBottom: 16 }}
             />
-            <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-              Study consent
+            <Text style={[styles.modalTitle, { color: c.textPrimary }]}>
+              Study Consent
             </Text>
-            <Text style={[styles.modalBody, isDark && styles.modalBodyDark]}>
+            <Text style={[styles.modalBody, { color: c.textSecondary }]}>
               {CONSENT_PROFILE_SUMMARY}
             </Text>
             <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: isDark ? '#4A5396' : '#7B8CDE' }]}
+              style={[styles.modalButton, { backgroundColor: c.accent }]}
               onPress={() => setShowConsentModal(false)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.modalButtonText, isDark && styles.modalButtonTextDark]}>
-                Got it
+              <Text style={styles.modalButtonText}>
+                Got It
               </Text>
             </TouchableOpacity>
           </Pressable>
@@ -265,37 +350,37 @@ export default function ProfileScreen() {
           onPress={() => setShowPermissionsModal(false)}
         >
           <Pressable
-            style={[styles.modalContent, isDark && styles.modalContentDark]}
+            style={[styles.modalContent, { backgroundColor: c.card }]}
             onPress={() => {}}
           >
             <View style={styles.modalHandle} />
             <IconSymbol
               name="lock.shield.fill"
               size={32}
-              color={isDark ? '#8CBCAA' : '#5A9E87'}
+              color={c.semanticSuccess}
               style={{ alignSelf: 'center', marginBottom: 16 }}
             />
-            <Text style={[styles.modalTitle, isDark && styles.modalTitleDark]}>
-              Data permissions
+            <Text style={[styles.modalTitle, { color: c.textPrimary }]}>
+              Data Permissions
             </Text>
-            <Text style={[styles.modalSubhead, isDark && styles.modalSubheadDark]}>
+            <Text style={[styles.modalSubhead, { color: c.textTertiary }]}>
               What this app can access:
             </Text>
             {DATA_PERMISSIONS_SUMMARY.map((item, index) => (
               <View key={index} style={styles.bulletRow}>
-                <View style={[styles.bullet, isDark && styles.bulletDark]} />
-                <Text style={[styles.bulletText, isDark && styles.bulletTextDark]}>
+                <View style={[styles.bullet, { backgroundColor: c.textTertiary }]} />
+                <Text style={[styles.bulletText, { color: c.textSecondary }]}>
                   {item}
                 </Text>
               </View>
             ))}
             <TouchableOpacity
-              style={[styles.modalButton, isDark && styles.modalButtonDark]}
+              style={[styles.modalButton, { backgroundColor: c.accent }]}
               onPress={() => setShowPermissionsModal(false)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.modalButtonText, isDark && styles.modalButtonTextDark]}>
-                Got it
+              <Text style={styles.modalButtonText}>
+                Got It
               </Text>
             </TouchableOpacity>
           </Pressable>
@@ -308,52 +393,37 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F8',
-  },
-  containerDark: {
-    backgroundColor: '#0A0E1A',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   screenTitle: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#2C3E50',
-    fontFamily: 'Georgia',
-    marginBottom: 24,
-  },
-  screenTitleDark: {
-    color: '#C8D6E5',
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: 0.37,
+    marginBottom: 20,
   },
 
-  // Cards
+  // Cards — iOS grouped style
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  cardDark: {
-    backgroundColor: '#141828',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   cardLabel: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#7A7F8E',
-  },
-  cardLabelDark: {
-    color: '#8B92A8',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 
   // Account info
@@ -375,12 +445,46 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 15,
-    color: '#8E8E93',
     lineHeight: 22,
     fontStyle: 'italic',
   },
-  placeholderTextDark: {
-    color: '#6B7394',
+
+  // Segmented control — iOS style
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 9,
+    padding: 2,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 7,
+  },
+  segmentSelected: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  // Dev tools
+  devButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  devButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 
   // Sign out
@@ -389,13 +493,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-  },
-  signOutButtonDark: {
-    backgroundColor: '#141828',
   },
   signOutText: {
     fontSize: 16,
@@ -403,12 +503,12 @@ const styles = StyleSheet.create({
     color: '#D64545',
   },
 
-  // Tappable row buttons
+  // Tappable row buttons — iOS Settings style
   rowButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -416,15 +516,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   rowLabel: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '400',
   },
   rowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E7EE',
-  },
-  rowDividerDark: {
-    backgroundColor: '#1E2236',
+    marginLeft: 44,
   },
   bulletRow: {
     flexDirection: 'row',
@@ -433,43 +530,27 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   bullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#C7C7CC',
-    marginTop: 7,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginTop: 8,
     marginRight: 10,
-  },
-  bulletDark: {
-    backgroundColor: '#3A3E50',
   },
   bulletText: {
     flex: 1,
     fontSize: 15,
-    color: '#5E6B7A',
     lineHeight: 22,
-  },
-  bulletTextDark: {
-    color: '#8B92A8',
   },
 
   // Contact
   contactName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#2C3E50',
-  },
-  contactNameDark: {
-    color: '#D4D8E8',
   },
   contactRole: {
-    fontSize: 14,
-    color: '#7A7F8E',
+    fontSize: 13,
     marginTop: 2,
     marginBottom: 14,
-  },
-  contactRoleDark: {
-    color: '#6B7394',
   },
   contactActions: {
     gap: 8,
@@ -478,20 +559,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#F5EEEF',
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 10,
   },
-  contactButtonDark: {
-    backgroundColor: '#1E1318',
-  },
   contactButtonText: {
-    fontSize: 14,
-    color: '#5E6B7A',
-  },
-  contactButtonTextDark: {
-    color: '#A8868C',
+    fontSize: 15,
   },
 
   // Modal
@@ -501,68 +574,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    padding: 20,
     paddingBottom: 40,
-  },
-  modalContentDark: {
-    backgroundColor: '#1A1E2E',
   },
   modalHandle: {
     width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D0D0D0',
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#C7C7CC',
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#2C3E50',
     textAlign: 'center',
     marginBottom: 12,
   },
-  modalTitleDark: {
-    color: '#C8D6E5',
-  },
   modalBody: {
     fontSize: 15,
-    color: '#5E6B7A',
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 24,
   },
-  modalBodyDark: {
-    color: '#8B92A8',
-  },
   modalSubhead: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#7A7F8E',
     marginBottom: 12,
     textAlign: 'left',
   },
-  modalSubheadDark: {
-    color: '#6B7394',
-  },
   modalButton: {
-    backgroundColor: '#5A9E87',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-  },
-  modalButtonDark: {
-    backgroundColor: '#3D7A65',
+    marginTop: 8,
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  modalButtonTextDark: {
-    color: '#E8F0EC',
   },
 });

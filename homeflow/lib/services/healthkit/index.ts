@@ -45,6 +45,7 @@ export {
   getClinicalLabResults,
   getClinicalConditions,
   getClinicalProcedures,
+  getClinicalNotes,
   getAllClinicalRecords,
 } from './ClinicalRecordsClient';
 

@@ -1,7 +1,7 @@
 /**
  * Welcome Screen
  *
- * Brief introduction to the HomeFlow study.
+ * Brief introduction to the StreamSync study.
  * Sets the tone and explains what to expect.
  */
 
@@ -84,7 +84,7 @@ export default function WelcomeScreen() {
           }}
         >
           <Text style={[styles.title, { color: colors.text }]}>
-            Welcome to HomeFlow
+            Welcome to StreamSync
           </Text>
           <Text style={[styles.subtitle, { color: colors.icon }]}>
             {STUDY_INFO.institution}

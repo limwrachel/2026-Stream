@@ -36,7 +36,11 @@ export function StandardProvider({
   children,
 }: StandardProviderProps) {
   const [backend, setBackend] = useState<BackendService | null>(null);
-  const [accountService, setAccountService] = useState<IAccountService | null>(null);
+  // Initialized synchronously so AuthProvider is always in the tree from first render
+  const [accountService] = useState<IAccountService>(() => {
+    const config = getBackendConfig();
+    return BackendFactory.createAccountService(config);
+  });
   const [backendType, setBackendType] = useState<BackendType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -55,7 +59,6 @@ export function StandardProvider({
       try {
         const config = getBackendConfig();
         const backendInstance = BackendFactory.createBackend(config);
-        const accountServiceInstance = BackendFactory.createAccountService(config);
 
         await Promise.all([
           backendInstance.initialize(),
@@ -65,7 +68,6 @@ export function StandardProvider({
         if (cancelled) return;
 
         setBackend(backendInstance);
-        setAccountService(accountServiceInstance);
         setBackendType(config.type);
         setSchedulerLoading(false);
         setIsLoading(false);
@@ -115,15 +117,6 @@ export function StandardProvider({
     () => ({ scheduler, isLoading: schedulerLoading }),
     [scheduler, schedulerLoading]
   );
-
-  // Don't render AuthProvider until account service is ready
-  if (!accountService) {
-    return (
-      <StandardContext.Provider value={standardValue}>
-        {children}
-      </StandardContext.Provider>
-    );
-  }
 
   return (
     <StandardContext.Provider value={standardValue}>

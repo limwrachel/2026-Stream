@@ -8,6 +8,7 @@
 /** Supported HKClinicalRecord type identifiers */
 export enum ClinicalRecordType {
   AllergyRecord = 'allergyRecord',
+  ClinicalNoteRecord = 'clinicalNoteRecord',
   ConditionRecord = 'conditionRecord',
   ImmunizationRecord = 'immunizationRecord',
   LabResultRecord = 'labResultRecord',

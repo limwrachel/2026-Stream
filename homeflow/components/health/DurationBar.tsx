@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { useAppTheme } from '@/lib/theme/ThemeContext';
 
 interface DurationBarProps {
   fill: number;
@@ -8,23 +9,26 @@ interface DurationBarProps {
 }
 
 export function DurationBar({ fill, valueLabel, baselineLabel }: DurationBarProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { theme } = useAppTheme();
+  const { isDark, colors: c } = theme;
   const clampedFill = Math.max(0, Math.min(fill, 1));
+
+  const trackBg = isDark ? '#38383A' : '#E5E5EA';    // systemFill
+  const fillBg = isDark ? '#BF5AF2' : '#AF52DE';      // systemPurple (matches sleep)
 
   return (
     <View style={styles.container}>
-      <View style={[styles.track, isDark && styles.trackDark]}>
+      <View style={[styles.track, { backgroundColor: trackBg }]}>
         <View
           style={[
             styles.fill,
-            isDark && styles.fillDark,
-            { width: `${clampedFill * 100}%` },
+            { backgroundColor: fillBg, width: `${clampedFill * 100}%` },
           ]}
         />
       </View>
       <View style={styles.labels}>
-        <Text style={[styles.label, isDark && styles.labelDark]}>{valueLabel}</Text>
-        <Text style={[styles.label, isDark && styles.labelDark]}>{baselineLabel}</Text>
+        <Text style={[styles.label, { color: c.textTertiary }]}>{valueLabel}</Text>
+        <Text style={[styles.label, { color: c.textTertiary }]}>{baselineLabel}</Text>
       </View>
     </View>
   );
@@ -35,21 +39,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   track: {
-    height: 8,
-    backgroundColor: '#D8D8E4',
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     overflow: 'hidden',
   },
-  trackDark: {
-    backgroundColor: '#1E2236',
-  },
   fill: {
-    height: 8,
-    backgroundColor: '#7B8CDE',
-    borderRadius: 4,
-  },
-  fillDark: {
-    backgroundColor: '#6878C0',
+    height: 6,
+    borderRadius: 3,
   },
   labels: {
     flexDirection: 'row',
@@ -57,10 +53,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   label: {
-    fontSize: 14,
-    color: '#6E7286',
-  },
-  labelDark: {
-    color: '#8B92A8',
+    fontSize: 13,
   },
 });

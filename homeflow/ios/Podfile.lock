@@ -11,7 +11,11 @@ PODS:
     - PromisesObjC (~> 2.4)
   - ClinicalRecordsModule (0.1.0):
     - ExpoModulesCore
+  - EXApplication (7.0.8):
+    - ExpoModulesCore
   - EXConstants (18.0.13):
+    - ExpoModulesCore
+  - EXNotifications (0.32.16):
     - ExpoModulesCore
   - Expo (54.0.32):
     - ExpoModulesCore
@@ -2158,7 +2162,9 @@ PODS:
 
 DEPENDENCIES:
   - ClinicalRecordsModule (from `../modules/expo-clinical-records/ios`)
+  - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
+  - EXNotifications (from `../node_modules/expo-notifications/ios`)
   - Expo (from `../node_modules/expo`)
   - "ExpoAdapterGoogleSignIn (from `../node_modules/@react-native-google-signin/google-signin/expo/ios`)"
   - ExpoAppleAuthentication (from `../node_modules/expo-apple-authentication/ios`)
@@ -2274,8 +2280,12 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   ClinicalRecordsModule:
     :path: "../modules/expo-clinical-records/ios"
+  EXApplication:
+    :path: "../node_modules/expo-application/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
+  EXNotifications:
+    :path: "../node_modules/expo-notifications/ios"
   Expo:
     :path: "../node_modules/expo"
   ExpoAdapterGoogleSignIn:
@@ -2468,7 +2478,9 @@ SPEC CHECKSUMS:
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   ClinicalRecordsModule: ca5a9ab487199aa4fe864e4fa00f4cc497f9b6ff
+  EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
   EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
+  EXNotifications: 9eec98712cc814ceff916d876cb53859003b0597
   Expo: 4e503a041c59c4e34c8be262a135848ad5cd3710
   ExpoAdapterGoogleSignIn: 21ff1daeef3d21cb0b45772d8029102cc728d6b1
   ExpoAppleAuthentication: 9413ae9a5e631a424cc04c1b13b0694dbab7d594
@@ -2575,6 +2587,6 @@ SPEC CHECKSUMS:
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Yoga: 5934998fbeaef7845dbf698f698518695ab4cd1a
 
-PODFILE CHECKSUM: 44061434db8e1b9d2590f8fda69c1c7e0ff94572
+PODFILE CHECKSUM: 63bf0679b54bcdbf73c38924c7548fc0796a5e77
 
 COCOAPODS: 1.16.2

@@ -17,6 +17,7 @@ const STEP_TO_PATH: Record<OnboardingStep, string> = {
   [OnboardingStep.WELCOME]: '/(onboarding)/welcome',
   [OnboardingStep.CHAT]: '/(onboarding)/chat',
   [OnboardingStep.CONSENT]: '/(onboarding)/consent',
+  [OnboardingStep.ACCOUNT]: '/(onboarding)/account',
   [OnboardingStep.PERMISSIONS]: '/(onboarding)/permissions',
   [OnboardingStep.HEALTH_DATA_TEST]: '/(onboarding)/health-data-test',
   [OnboardingStep.MEDICAL_HISTORY]: '/(onboarding)/medical-history',

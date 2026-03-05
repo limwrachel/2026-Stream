@@ -88,8 +88,13 @@ export default function HealthDataTestScreen() {
   }, [router]);
 
   const handleContinue = async () => {
-    await OnboardingService.goToStep(OnboardingStep.MEDICAL_HISTORY);
-    router.push('/(onboarding)/medical-history' as Href);
+    if (__DEV__) {
+      // In dev builds, proceed to the FHIR parser test screen next
+      router.push('/(onboarding)/fhir-parser-test' as Href);
+    } else {
+      await OnboardingService.goToStep(OnboardingStep.MEDICAL_HISTORY);
+      router.push('/(onboarding)/medical-history' as Href);
+    }
   };
 
   // Don't render test UI in production

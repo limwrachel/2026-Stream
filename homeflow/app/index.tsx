@@ -10,6 +10,7 @@ import { Redirect, Href } from 'expo-router';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
 import { useAuth } from '@/hooks/use-auth';
 import { LoadingScreen } from '@/components/ui/loading-screen';
+import { isDevAuthSkipped } from '@/lib/dev-flags';
 
 export default function RootIndex() {
   const onboardingComplete = useOnboardingStatus();
@@ -23,7 +24,7 @@ export default function RootIndex() {
     return <Redirect href={'/(onboarding)' as Href} />;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isDevAuthSkipped()) {
     return <Redirect href={'/(auth)/login' as Href} />;
   }
 

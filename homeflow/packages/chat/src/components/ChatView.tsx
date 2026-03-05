@@ -43,9 +43,12 @@ export function ChatView({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ref keeps latest messages for use in callbacks without stale closures
+  // Ref keeps latest messages — updated in useEffect (after commit) so
+  // concurrent renders never write uncommitted state into the ref.
   const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -72,18 +75,23 @@ export function ChatView({
       content: '',
     };
 
+    // Snapshot committed messages BEFORE queuing the state update so a
+    // concurrent render can never slip the new empty assistant message
+    // into the history we send to the LLM.
+    const historySnapshot = messagesRef.current;
+
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-      // Build messages for LLM (read from ref to avoid stale closure)
       const llmMessages: LLMMessage[] = [];
       if (systemPrompt) {
         llmMessages.push({ role: 'system', content: systemPrompt });
       }
-      messagesRef.current.forEach((msg) => {
-        if (msg.role !== 'system') {
+      // Use the snapshot and filter out any empty assistant placeholders
+      historySnapshot.forEach((msg) => {
+        if (msg.role !== 'system' && msg.content) {
           llmMessages.push({ role: msg.role, content: msg.content });
         }
       });
@@ -109,6 +117,17 @@ export function ChatView({
             );
           },
           onComplete: () => {
+            // If the stream completed with no tokens, show a fallback
+            // instead of leaving the spinner forever.
+            if (!fullContent.trim()) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessage.id
+                    ? { ...msg, content: 'Sorry, I had trouble responding. Please send your message again.' }
+                    : msg
+                )
+              );
+            }
             onResponse?.(fullContent);
           },
           onError: (error) => {

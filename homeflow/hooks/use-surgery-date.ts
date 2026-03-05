@@ -6,7 +6,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { OnboardingService } from '@/lib/services/onboarding-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/lib/constants';
 
@@ -69,10 +68,6 @@ export function useSurgeryDate(): SurgeryDateInfo {
 
     async function loadSurgeryDate() {
       try {
-        // Try to get surgery date from medical history
-        const data = await OnboardingService.getData();
-        const medHistory = data.medicalHistory;
-
         // Check AsyncStorage directly for a surgery date field
         const stored = await AsyncStorage.getItem(STORAGE_KEYS.MEDICAL_HISTORY);
         let surgeryDate: string | null = null;

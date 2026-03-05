@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { DurationBar } from './DurationBar';
 import type { SleepInsight } from '@/lib/services/health-summary';
+import { useAppTheme } from '@/lib/theme/ThemeContext';
 
 interface SleepSectionProps {
   insight: SleepInsight;
@@ -10,31 +11,34 @@ interface SleepSectionProps {
 
 export function SleepSection({ insight }: SleepSectionProps) {
   const [expanded, setExpanded] = useState(false);
-  const isDark = useColorScheme() === 'dark';
+  const { theme } = useAppTheme();
+  const { isDark, colors: c } = theme;
+
+  const accent = isDark ? '#BF5AF2' : '#AF52DE'; // systemPurple — sleep
 
   return (
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => setExpanded(!expanded)}
-      style={[styles.card, isDark && styles.cardDark]}
+      style={[styles.card, { backgroundColor: c.card }]}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <IconSymbol name="moon.fill" size={16} color={isDark ? '#A0A8D0' : '#7B8CDE'} />
-          <Text style={[styles.sectionLabel, isDark && styles.sectionLabelDark]}>Sleep</Text>
+          <IconSymbol name="moon.fill" size={17} color={accent} />
+          <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>Sleep</Text>
         </View>
         <IconSymbol
           name="chevron.right"
           size={14}
-          color={isDark ? '#6B7394' : '#8E8E93'}
+          color={c.textTertiary}
           style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
         />
       </View>
 
-      <Text style={[styles.headline, isDark && styles.headlineDark]}>
+      <Text style={[styles.headline, { color: c.textPrimary }]}>
         {insight.headline}
       </Text>
-      <Text style={[styles.supporting, isDark && styles.supportingDark]}>
+      <Text style={[styles.supporting, { color: c.textSecondary }]}>
         {insight.supportingText}
       </Text>
 
@@ -46,22 +50,22 @@ export function SleepSection({ insight }: SleepSectionProps) {
             baselineLabel={`${insight.baselineHours}h avg`}
           />
 
-          <Text style={[styles.detailRow, isDark && styles.detailRowDark]}>
+          <Text style={[styles.detailRow, { color: c.textTertiary }]}>
             Sleep efficiency: {insight.efficiency}%
           </Text>
 
           {insight.stages && (
             <View style={styles.stagesContainer}>
-              <Text style={[styles.detailRow, isDark && styles.detailRowDark]}>
+              <Text style={[styles.detailRow, { color: c.textTertiary }]}>
                 Deep: {insight.stages.deep} min
               </Text>
-              <Text style={[styles.detailRow, isDark && styles.detailRowDark]}>
+              <Text style={[styles.detailRow, { color: c.textTertiary }]}>
                 Core: {insight.stages.core} min
               </Text>
-              <Text style={[styles.detailRow, isDark && styles.detailRowDark]}>
+              <Text style={[styles.detailRow, { color: c.textTertiary }]}>
                 REM: {insight.stages.rem} min
               </Text>
-              <Text style={[styles.detailRow, isDark && styles.detailRowDark]}>
+              <Text style={[styles.detailRow, { color: c.textTertiary }]}>
                 Awake: {insight.stages.awake} min
               </Text>
             </View>
@@ -74,18 +78,14 @@ export function SleepSection({ insight }: SleepSectionProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#EEEEF6',
-    borderRadius: 16,
-    padding: 20,
-  },
-  cardDark: {
-    backgroundColor: '#141828',
+    borderRadius: 12,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -94,40 +94,25 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 13,
-    color: '#7B8CDE',
-    fontWeight: '500',
-  },
-  sectionLabelDark: {
-    color: '#A0A8D0',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   headline: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#2C3044',
-    fontFamily: 'Georgia',
+    fontWeight: '700',
+    letterSpacing: 0.38,
     marginBottom: 4,
   },
-  headlineDark: {
-    color: '#D4D8E8',
-  },
   supporting: {
-    fontSize: 16,
-    color: '#6E7286',
+    fontSize: 15,
     lineHeight: 22,
-  },
-  supportingDark: {
-    color: '#8B92A8',
   },
   details: {
     marginTop: 16,
   },
   detailRow: {
     fontSize: 15,
-    color: '#5C6080',
     marginTop: 8,
-  },
-  detailRowDark: {
-    color: '#9CA3BE',
   },
   stagesContainer: {
     marginTop: 4,
