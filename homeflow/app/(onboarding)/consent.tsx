@@ -40,7 +40,6 @@ import {
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SignaturePad, type SignaturePadRef } from '@/components/ui/SignaturePad';
 import { useAuth } from '@/hooks/use-auth';
-import { uploadConsentPdf } from '@/src/services/consentPdfSync';
 
 function buildConsentText(): string {
   const header = [
@@ -123,16 +122,16 @@ export default function ConsentScreen() {
       // Record consent locally (source of truth for gate-keeping)
       await ConsentService.recordConsent(signatureValue);
 
-      // Upload signed PDF to Firebase Storage + write Firestore metadata.
-      // Non-fatal: failure should not block the participant from proceeding.
-      const pdfResult = await uploadConsentPdf({
-        signatureType: signatureMode === 'type' ? 'typed' : 'drawn',
-        participantName,
-        signatureValue,
+      // Store signature data so account.tsx can upload the PDF after sign-in.
+      // We can't upload now because the user isn't authenticated yet.
+      await OnboardingService.updateData({
+        pendingConsentPdf: {
+          signatureType: signatureMode === 'type' ? 'typed' : 'drawn',
+          participantName,
+          signatureValue,
+          consentDate: new Date().toISOString(),
+        },
       });
-      if (!pdfResult.ok) {
-        console.warn('[Consent] PDF upload failed (non-fatal):', pdfResult.error);
-      }
 
       // Advance onboarding
       await OnboardingService.goToStep(OnboardingStep.ACCOUNT);

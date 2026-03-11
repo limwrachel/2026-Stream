@@ -429,13 +429,24 @@ export default function MedicalHistoryScreen() {
 
       setReviewStep(0);
       setCorrectionsNeeded(new Set());
-      setDemoName('');
       setDemoAge('');
       setDemoBiologicalSex('');
       setDemoEthnicity('');
       setDemoRace('');
-      setDemoStage('name');
       setDemoEditingField(null);
+
+      // Pre-fill name from consent signature — must happen after all resets
+      // so it isn't overwritten. The consent record is in-memory so this is fast.
+      const consentRecord = await ConsentService.getConsentRecord();
+      const consentName = consentRecord?.participantSignature;
+      if (consentName && consentName !== '[Drawn signature provided]') {
+        setDemoName(consentName);
+        setDemoStage('ethnicity');
+      } else {
+        setDemoName('');
+        setDemoStage('name');
+      }
+
       setPhase('reviewing');
     } catch {
       setPhase('reviewing');
@@ -445,20 +456,6 @@ export default function MedicalHistoryScreen() {
   useEffect(() => {
     loadPrefillData();
   }, [loadPrefillData]);
-
-  // Pre-fill name from typed consent signature so the user doesn't enter it twice
-  useEffect(() => {
-    let cancelled = false;
-    ConsentService.getConsentRecord().then((record) => {
-      if (cancelled) return;
-      const sig = record?.participantSignature;
-      if (sig && sig !== '[Drawn signature provided]') {
-        setDemoName(sig);
-        setDemoStage('ethnicity');
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
 
   // ── Review step navigation ────────────────────────────────────────
 

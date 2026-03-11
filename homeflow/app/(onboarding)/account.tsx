@@ -5,7 +5,7 @@
  * In dev mode, a skip button allows bypassing auth for faster iteration.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import { OnboardingService } from '@/lib/services/onboarding-service';
 import { useAuth } from '@/hooks/use-auth';
 import { saveSurgeryDate } from '@/src/services/throneFirestore';
 import { getAuth } from '@/src/services/firestore';
+import { uploadConsentPdf } from '@/src/services/consentPdfSync';
 import {
   OnboardingProgressBar,
   ContinueButton,
@@ -38,7 +39,7 @@ export default function AccountScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { signInWithEmail, signUpWithEmail, signInWithApple, signInWithGoogle, isAuthenticated } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithApple, signInWithGoogle, signOut, isAuthenticated, user } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
   const [email, setEmail] = useState('');
@@ -47,22 +48,34 @@ export default function AccountScreen() {
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If user is already authenticated, advance automatically
-  useEffect(() => {
-    if (isAuthenticated) {
-      handleAdvance();
-    }
-  }, [isAuthenticated]);
+  // If already signed in, show a "continue / switch account" prompt rather than
+  // silently skipping — this handles the onboarding-reset-while-logged-in case.
 
   const handleAdvance = async () => {
-    // Flush any surgery date collected before login to Firestore now that we have a UID.
     const uid = getAuth().currentUser?.uid;
     if (uid) {
       const data = await OnboardingService.getData();
+
+      // Flush surgery date collected pre-login
       const surgeryDate = data.eligibility?.surgeryDate;
       if (surgeryDate) {
         saveSurgeryDate(uid, surgeryDate).catch((err) => {
           console.warn('[Account] Failed to flush surgery date to Firestore:', err);
+        });
+      }
+
+      // Upload consent PDF now that we have a UID
+      const pending = data.pendingConsentPdf;
+      if (pending) {
+        uploadConsentPdf({
+          signatureType: pending.signatureType,
+          participantName: pending.participantName,
+          signatureValue: pending.signatureValue,
+          consentDate: pending.consentDate,
+        }).then((result) => {
+          if (!result.ok) {
+            console.warn('[Account] Consent PDF upload failed (non-fatal):', result.error);
+          }
         });
       }
     }
@@ -159,6 +172,29 @@ export default function AccountScreen() {
                 : 'Sign in to continue to StreamSync.'}
             </Text>
           </View>
+
+          {/* Already signed in — let user continue or switch accounts */}
+          {isAuthenticated && (
+            <View style={[styles.alreadySignedIn, { borderColor: StanfordColors.cardinal }]}>
+              <Text style={[styles.alreadySignedInText, { color: colors.text }]}>
+                Signed in as {user?.email ?? 'your account'}
+              </Text>
+              <View style={styles.alreadySignedInButtons}>
+                <TouchableOpacity
+                  style={[styles.continueAsButton, { backgroundColor: StanfordColors.cardinal }]}
+                  onPress={handleAdvance}
+                >
+                  <Text style={styles.continueAsButtonText}>Continue</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.switchButton, { borderColor: colors.border }]}
+                  onPress={async () => { await signOut(); }}
+                >
+                  <Text style={[styles.switchButtonText, { color: colors.icon }]}>Switch Account</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           <View style={styles.form}>
             {mode === 'signup' && (
@@ -369,6 +405,46 @@ const styles = StyleSheet.create({
   },
   socialButtonText: {
     fontSize: 17,
+    fontWeight: '500',
+  },
+  alreadySignedIn: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  alreadySignedInText: {
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  alreadySignedInButtons: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  continueAsButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  continueAsButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  switchButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  switchButtonText: {
+    fontSize: 15,
     fontWeight: '500',
   },
   footer: {

@@ -47,6 +47,14 @@ export interface OnboardingData {
     throne: 'granted' | 'denied' | 'not_determined' | 'skipped';
   };
 
+  // Consent PDF — stored pre-auth, uploaded to Firebase Storage after sign-in
+  pendingConsentPdf?: {
+    signatureType: 'typed' | 'drawn';
+    participantName: string | null;
+    signatureValue: string;
+    consentDate: string; // ISO string
+  };
+
   // IPSS baseline score
   ipssBaseline?: {
     score: number;

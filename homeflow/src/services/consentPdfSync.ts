@@ -31,6 +31,8 @@ export interface ConsentSignatureData {
   participantName: string | null;
   /** The raw value passed to ConsentService.recordConsent — typed name or marker string. */
   signatureValue: string;
+  /** ISO string of when the participant actually signed (may differ from upload time). */
+  consentDate?: string;
 }
 
 export interface ConsentPdfResult {
@@ -122,7 +124,8 @@ export async function uploadConsentPdf(
   }
 
   const now = new Date();
-  const consentDate = now.toLocaleDateString('en-US', {
+  const signedAt = signature.consentDate ? new Date(signature.consentDate) : now;
+  const consentDate = signedAt.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

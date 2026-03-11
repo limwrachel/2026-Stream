@@ -10,6 +10,7 @@ import { bootstrapHealthKitSync } from '@/src/services/healthkitSync';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataSyncCheck } from '@/hooks/use-data-sync-check';
+import { useIPSSTaskSetup } from '@/hooks/use-ipss-task-setup';
 import { LoadingScreen } from '@/components/ui/loading-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { StandardProvider, useStandard } from '@/lib/services/standard-context';
@@ -34,6 +35,9 @@ const DEV_BYPASS_AUTH = __DEV__;
 function RootLayoutNav() {
   const onboardingComplete = useOnboardingStatus();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+
+  // Seed IPSS follow-up tasks at 1, 2, and 3 months post-surgery
+  useIPSSTaskSetup();
 
   // Run bootstrapHealthKitSync exactly once per signed-in uid.
   // Module-level Set survives Fast Refresh; a ref would reset on every hot reload.

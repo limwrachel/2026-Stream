@@ -26,11 +26,14 @@ import {
 } from '@/lib/questionnaires/ipss-questionnaire';
 import { OnboardingProgressBar, ContinueButton } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/hooks/use-auth';
+import { saveIpssScore } from '@/src/services/ipssScoreSync';
 
 export default function BaselineSurveyScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
 
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState<{ totalScore: number; qolScore: number; severity: string } | null>(null);
@@ -76,15 +79,33 @@ export default function BaselineSurveyScreen() {
     const calculatedScore = calculateIPSSScore(answers);
     setScore(calculatedScore);
 
-    // Save to onboarding data
+    const completedAt = new Date().toISOString();
+    const responseId = response.id || `ipss-${Date.now()}`;
+
+    // Save to onboarding data (local, source of truth for gate-keeping)
     await OnboardingService.updateData({
       ipssBaseline: {
         score: calculatedScore.totalScore,
         qolScore: calculatedScore.qolScore,
-        completedAt: new Date().toISOString(),
-        responseId: response.id || `ipss-${Date.now()}`,
+        completedAt,
+        responseId,
       },
     });
+
+    // Persist to Firestore under users/{uid}/ipss_scores/baseline
+    const uid = user?.id;
+    if (uid) {
+      saveIpssScore(uid, 'baseline', {
+        period: 'baseline',
+        totalScore: calculatedScore.totalScore,
+        qolScore: calculatedScore.qolScore,
+        severity: calculatedScore.severity as 'mild' | 'moderate' | 'severe',
+        completedAt,
+        responseId,
+      }).catch((err) => {
+        console.warn('[BaselineSurvey] Firestore write failed (non-fatal):', err);
+      });
+    }
 
     setShowResults(true);
   };

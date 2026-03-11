@@ -10,52 +10,80 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    // True if the signed-in user has a document in /Researchers/{uid}.
+    // That document is created manually via Firebase Console or Admin SDK —
+    // never by the mobile app — so patients can never grant themselves this role.
+    function isResearcher() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/Researchers/$(request.auth.uid));
+    }
+
+    // ── Researcher registry ───────────────────────────────────────────────────
+    // Researchers can read their own entry (lets the dashboard confirm the role).
+    // Only Admin SDK / Firebase Console can create or modify entries here.
+
+    match /Researchers/{researcherId} {
+      allow read:  if isOwner(researcherId) || isResearcher();
+      allow write: if false; // Admin SDK only — never writable by a client
+    }
+
+    // ── Patient registry (researcher-managed, used by dashboard) ─────────────
+    // Researchers read/write this collection to register study participants.
+    // Patients have no access to it.
+
+    match /patients/{patientId} {
+      allow read, write: if isResearcher();
+    }
+
     // ── User profiles ─────────────────────────────────────────────────────────
 
     match /users/{uid} {
-      // Owner can read their own profile document.
-      allow read: if isOwner(uid);
+      // Owner reads their own profile; researchers read any profile.
+      allow read: if isOwner(uid) || isResearcher();
 
       // Only allow writing the Throne device-link fields to the root profile
       // document. All other app data lives in named subcollections below.
-      // This prevents a client from writing arbitrary fields to the root doc
-      // (e.g. spoofing another participant's throneUserId).
+      // Researchers cannot overwrite patient profile documents.
       allow write: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['throneUserId', 'throneUserIdSetAt']);
 
-      // ── Throne data (written by Cloud Function, read by owner) ──────────────
+      // ── Throne data (written by Cloud Function, read by owner + researcher) ─
 
       match /throne_sessions/{sessionId} {
-        allow read: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
         allow write: if false; // Cloud Function (Admin SDK) only
       }
 
       match /throne_metrics/{metricId} {
-        allow read: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
         allow write: if false; // Cloud Function (Admin SDK) only
       }
 
       match /throne_sync/{docId} {
-        allow read: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
         allow write: if false; // Cloud Function (Admin SDK) only
       }
 
-      // ── HealthKit data (written by device, read by owner) ───────────────────
+      // ── HealthKit data (written by device, read by owner + researcher) ──────
 
       match /hk_heartRate/{sampleId} {
-        allow read, write: if isOwner(uid);
+        allow read:       if isOwner(uid) || isResearcher();
+        allow write:      if isOwner(uid);
       }
 
       match /hk_stepCount/{sampleId} {
-        allow read, write: if isOwner(uid);
+        allow read:       if isOwner(uid) || isResearcher();
+        allow write:      if isOwner(uid);
       }
 
       match /hk_sleepAnalysis/{sampleId} {
-        allow read, write: if isOwner(uid);
+        allow read:       if isOwner(uid) || isResearcher();
+        allow write:      if isOwner(uid);
       }
 
       match /hk_heartRateVariabilitySDNN/{sampleId} {
-        allow read, write: if isOwner(uid);
+        allow read:       if isOwner(uid) || isResearcher();
+        allow write:      if isOwner(uid);
       }
 
       match /hk_sync/{metricType} {
@@ -65,7 +93,8 @@ service cloud.firestore {
       // ── Clinical data ────────────────────────────────────────────────────────
 
       match /clinical_notes/{noteId} {
-        allow read, write: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
+        allow write: if isOwner(uid);
       }
 
       match /medical_history_prefill/{docId} {
@@ -73,34 +102,46 @@ service cloud.firestore {
       }
 
       match /medical_history/{docId} {
-        allow read, write: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
+        allow write: if isOwner(uid);
       }
 
       // ── Study metadata ───────────────────────────────────────────────────────
 
       match /surgery_date/{docId} {
-        allow read, write: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
+        allow write: if isOwner(uid);
       }
 
-      // Placeholder — logic to be added later
       match /consent_response/{docId} {
-        allow read, write: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
+        allow write: if isOwner(uid);
       }
 
-      // Placeholder — logic to be added later
       match /study_timeline/{docId} {
-        allow read, write: if isOwner(uid);
+        allow read:  if isOwner(uid) || isResearcher();
+        allow write: if isOwner(uid);
+      }
+
+      // ── IPSS scores — baseline + post-op follow-ups (1, 2, 3 months) ─────────
+
+      match /ipss_scores/{period} {
+        allow read:  if isOwner(uid) || isResearcher();
+        allow write: if isOwner(uid);
       }
     }
 
-    // ── Admin-only collections (Cloud Function / Admin SDK bypass rules) ───────
+    // ── Throne ingestion collections (Cloud Function / Admin SDK only) ────────
 
     match /throneSync/{studyId} {
       allow read, write: if false;
     }
 
+    // Researchers can enumerate enrolled users via throneUserMap.
+    // Cloud Function still has exclusive write access via Admin SDK.
     match /throneUserMap/{throneUserId} {
-      allow read, write: if false;
+      allow read:  if isResearcher();
+      allow write: if false; // Cloud Function (Admin SDK) only
     }
   }
 }

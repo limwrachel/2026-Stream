@@ -77,7 +77,7 @@ export const CONSENT_DOCUMENT: ConsentDocument = {
 
 \u2022 Installation and use of a smart toilet\u2013based uroflow measurement device (Throne One) attached to your home toilet. You will be asked to record as many voids as possible during a one-week period.
 
-\u2022 Completion of survey questionnaires collecting demographic information, medical history, and urinary symptoms, including follow-up surveys at 1 and 12 weeks after surgery.
+\u2022 Completion of survey questionnaires collecting demographic information, medical history, and urinary symptoms, including follow-up surveys at 1, 2, and 3 months after surgery.
 
 \u2022 Sharing of medical information from your medical record and from other health systems through Apple Health and related integrations, with your permission.`,
     },
