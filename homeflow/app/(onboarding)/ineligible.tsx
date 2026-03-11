@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing } from '@/constants/theme';
 import { STUDY_INFO, OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
-import { ContinueButton, DevToolBar } from '@/components/onboarding';
+import { ContinueButton } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function IneligibleScreen() {
@@ -127,7 +127,6 @@ export default function IneligibleScreen() {
         />
       </View>
 
-      <DevToolBar currentStep={OnboardingStep.CHAT} onContinue={handleDevContinue} />
     </SafeAreaView>
   );
 }

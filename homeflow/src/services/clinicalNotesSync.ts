@@ -13,7 +13,7 @@
  *       — raw document bytes (content-type preserved from FHIR attachment)
  *
  *   Firestore:
- *     users/{uid}/clinicalNotes/{noteId}
+ *     users/{uid}/clinical_notes/{noteId}
  *       displayName, startDate, endDate, contentType, title?,
  *       storageRef, fhirResourceType?, fhirSourceURL?,
  *       medgemmaStatus, uploadedAt
@@ -45,6 +45,8 @@ import {
 import { getClinicalNotes } from '@/lib/services/healthkit';
 import type { ClinicalRecord } from '@/lib/services/healthkit';
 import { db, getAuth } from './firestore';
+import { parseClinicalAttachment } from './cdaParser';
+import type { CdaSection } from './cdaParser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +64,19 @@ interface FhirAttachment {
   size?: number;        // bytes (unencoded)
   url?: string;         // present when data is not embedded
 }
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+// Allowlist of content types accepted from FHIR attachment metadata.
+// Any value outside this set is coerced to application/octet-stream.
+const ALLOWED_CONTENT_TYPES = new Set([
+  'application/pdf',
+  'application/xml',
+  'application/xhtml+xml',
+  'text/xml',
+  'text/plain',
+  'text/html',
+]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,7 +147,7 @@ export async function syncClinicalNotes(): Promise<SyncClinicalNotesResult> {
 
     for (const note of notes) {
       // ── Idempotency check ────────────────────────────────────────────────
-      const metaRef = doc(db, `users/${uid}/clinicalNotes/${note.id}`);
+      const metaRef = doc(db, `users/${uid}/clinical_notes/${note.id}`);
       const existing = await getDoc(metaRef);
       if (existing.exists()) {
         skipped++;
@@ -141,49 +156,94 @@ export async function syncClinicalNotes(): Promise<SyncClinicalNotesResult> {
 
       // ── Extract attachment ───────────────────────────────────────────────
       const attachment = extractAttachment(note.fhirResource);
-      const contentType = attachment?.contentType ?? 'application/pdf';
+      const rawContentType = attachment?.contentType ?? 'application/xml';
+      const contentType = ALLOWED_CONTENT_TYPES.has(rawContentType)
+        ? rawContentType
+        : 'application/octet-stream';
 
-      // ── Upload to Firebase Storage (only when inline data is available) ──
-      let storagePath: string | null = null;
+      // ── Parse attachment (CDA XML → human-readable sections) ────────────
+      // Most HealthKit clinical notes are CDA/HL7 XML, not readable PDFs.
+      // We decode and parse them here so the text is stored in Firestore
+      // for in-app display, while the raw decoded document goes to Storage
+      // for the downstream MedGemma research pipeline.
+      let parsedSections: CdaSection[] = [];
+      let parsedText: string = '';
+      let parsedDocType: string = 'unknown';
 
       if (attachment?.data) {
-        storagePath = `users/${uid}/clinical-notes/${note.id}`;
+        const parsed = parseClinicalAttachment(attachment.data, contentType);
+        parsedSections = parsed.sections;
+        parsedText = parsed.plainText;
+        parsedDocType = parsed.docType;
+
+        // ── Upload to Firebase Storage ─────────────────────────────────────
+        // Upload the decoded string content (not raw base64) using 'raw' mode
+        // to avoid the React Native ArrayBuffer/Blob incompatibility that
+        // occurs with uploadString(…, 'base64').
+        // Binary PDFs (docType === 'pdf') are skipped — they cannot be decoded
+        // to a string on the client and are uncommon from HealthKit.
+        const storagePath = `users/${uid}/clinical_notes/${note.id}`;
         const storageRef = ref(storage, storagePath);
 
-        await uploadString(storageRef, attachment.data, 'base64', {
-          contentType,
-          customMetadata: {
-            noteId: note.id,
-            displayName: note.displayName,
-            fhirSourceURL: note.fhirSourceURL ?? '',
-          },
-        });
+        if (parsed.decodedContent !== null) {
+          // Text or CDA XML — upload as decoded UTF-8 string
+          await uploadString(storageRef, parsed.decodedContent, 'raw', {
+            contentType: parsed.docType === 'cda' ? 'text/xml' : contentType,
+            customMetadata: {
+              noteId: note.id,
+              displayName: note.displayName,
+              docType: parsed.docType,
+              fhirSourceURL: note.fhirSourceURL ?? '',
+            },
+          });
+        } else {
+          // Binary PDF — upload raw base64 (best effort; may fail on some RN builds)
+          await uploadString(storageRef, attachment.data, 'base64', {
+            contentType,
+            customMetadata: {
+              noteId: note.id,
+              displayName: note.displayName,
+              docType: 'pdf',
+              fhirSourceURL: note.fhirSourceURL ?? '',
+            },
+          });
+        }
 
         console.log(
-          `[ClinicalNotes] Uploaded ${storagePath} (${contentType}, ~${attachment.size ?? '?'} bytes)`,
+          `[ClinicalNotes] Uploaded ${storagePath} (docType=${parsed.docType}, sections=${parsedSections.length})`,
         );
         uploaded++;
       } else {
-        console.log(
-          `[ClinicalNotes] Note ${note.id} ("${note.displayName}") has no inline data — recording metadata only`,
-        );
+        if (__DEV__) {
+          console.log(
+            `[ClinicalNotes] Note ${note.id} ("${note.displayName}") has no inline data — metadata only`,
+          );
+        }
       }
 
-      // ── Write metadata to Firestore (always, for every note) ────────────
-      // storageRef is null when the attachment was url-only; the MedGemma
-      // batch job should skip docs where storageRef === null.
+      // ── Write metadata + parsed text to Firestore ────────────────────────
+      // parsedText and parsedSections make the content readable in-app without
+      // needing to download from Storage. storageRef is set when a file was
+      // uploaded (null for url-only attachments).
+      const storagePath = attachment?.data
+        ? `users/${uid}/clinical_notes/${note.id}`
+        : null;
+
       await setDoc(metaRef, {
         displayName: note.displayName,
         startDate: Timestamp.fromDate(new Date(note.startDate)),
         endDate: Timestamp.fromDate(new Date(note.endDate)),
         contentType,
         title: attachment?.title ?? null,
-        storageRef: storagePath,          // null → no inline data available
+        storageRef: storagePath,
         attachmentUrl: attachment?.url ?? null,
         fhirResourceType: note.fhirResourceType ?? null,
         fhirSourceURL: note.fhirSourceURL ?? null,
-        // End-of-study MedGemma pipeline reads all docs where this == 'pending'
-        // and storageRef != null (has uploadable content)
+        // Parsed readable content — populated for CDA XML and plain text
+        parsedDocType,
+        parsedText: parsedText || null,
+        parsedSections: parsedSections.length > 0 ? parsedSections : null,
+        // MedGemma pipeline: reads docs where status == 'pending' and storageRef != null
         medgemmaStatus: storagePath ? 'pending' : 'no-data',
         uploadedAt: serverTimestamp(),
       });

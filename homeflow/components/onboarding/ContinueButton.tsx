@@ -14,6 +14,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { StanfordColors, Colors } from '@/constants/theme';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 interface ContinueButtonProps {
   title?: string;
@@ -91,7 +92,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   text: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
   },
 });

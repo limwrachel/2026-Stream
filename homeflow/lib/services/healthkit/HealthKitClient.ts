@@ -169,14 +169,15 @@ export async function requestHealthPermissions(): Promise<HealthPermissionResult
 export async function getDailyActivity(range: DateRange): Promise<DailyActivity[]> {
   if (!isIOS()) return [];
 
-  // Fetch all activity types in parallel
+  // Fetch all activity types in parallel; catch individually so Watch-only
+  // type failures (exerciseTime, moveTime, standTime) don't block step/energy data
   const [steps, energy, exercise, move, stand, distance] = await Promise.all([
-    queryQuantity(HK.stepCount, range, 'count'),
-    queryQuantity(HK.activeEnergy, range, 'kcal'),
-    queryQuantity(HK.exerciseTime, range, 'min'),
-    queryQuantity(HK.moveTime, range, 'min'),
-    queryQuantity(HK.standTime, range, 'min'),
-    queryQuantity(HK.distance, range, 'm'),
+    queryQuantity(HK.stepCount, range, 'count').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.activeEnergy, range, 'kcal').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.exerciseTime, range, 'min').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.moveTime, range, 'min').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.standTime, range, 'min').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.distance, range, 'm').catch(() => [] as readonly QuantitySample[]),
   ]);
 
   // Bucket each metric by day
@@ -313,13 +314,14 @@ export async function getSleep(range: DateRange): Promise<SleepNight[]> {
 export async function getVitals(range: DateRange): Promise<VitalsDay[]> {
   if (!isIOS()) return [];
 
-  // Fetch all vitals in parallel
+  // Fetch all vitals in parallel; catch individually so one missing type
+  // doesn't block the rest
   const [hr, restingHR, hrvSamples, respRate, spo2] = await Promise.all([
-    queryQuantity(HK.heartRate, range, 'count/min'),
-    queryQuantity(HK.restingHeartRate, range, 'count/min'),
-    queryQuantity(HK.hrv, range, 'ms'),
-    queryQuantity(HK.respiratoryRate, range, 'count/min'),
-    queryQuantity(HK.oxygenSaturation, range, '%'),
+    queryQuantity(HK.heartRate, range, 'count/min').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.restingHeartRate, range, 'count/min').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.hrv, range, 'ms').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.respiratoryRate, range, 'count/min').catch(() => [] as readonly QuantitySample[]),
+    queryQuantity(HK.oxygenSaturation, range, '%').catch(() => [] as readonly QuantitySample[]),
   ]);
 
   // Bucket by day

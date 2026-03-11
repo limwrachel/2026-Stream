@@ -13,14 +13,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   Alert,
   Modal,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import { useAppTheme } from '@/lib/theme/ThemeContext';
 
 // ── Data ────────────────────────────────────────────────────────────
 
@@ -149,9 +148,8 @@ function getCalendarCells(monthStart: Date): (Date | null)[] {
 // ── Component ────────────────────────────────────────────────────────
 
 export default function TrackerScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const isDark = colorScheme === 'dark';
+  const { theme } = useAppTheme();
+  const { isDark, colors: c } = theme;
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Persisted logs: YYYY-MM-DD → array of symptom ids
@@ -225,19 +223,19 @@ export default function TrackerScreen() {
       .filter(Boolean);
   }, [historyDay, logs]);
 
-  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
-  const sheetBg = isDark ? '#1C1C1E' : '#FFFFFF';
-  const calCellBg = isDark ? '#2C2C2E' : '#F2F2F7';
+  const borderColor = c.separator;
+  const sheetBg = c.card;
+  const calCellBg = c.secondaryFill;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
 
       {/* ── Header ── */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: c.separator }]}>
         {/* Date block */}
         <View style={styles.dateBlock}>
-          <Text style={[styles.dateWeekday, { color: colors.text }]}>{weekday}</Text>
-          <Text style={[styles.dateMonthDay, { color: colors.icon }]}>{monthDay}</Text>
+          <Text style={[styles.dateWeekday, { color: c.textPrimary }]}>{weekday}</Text>
+          <Text style={[styles.dateMonthDay, { color: c.textSecondary }]}>{monthDay}</Text>
         </View>
 
         {/* Right-side controls */}
@@ -255,12 +253,12 @@ export default function TrackerScreen() {
             style={styles.calendarButton}
             activeOpacity={0.7}
           >
-            <IconSymbol name="calendar" size={24} color={colors.text} />
+            <IconSymbol name="calendar" size={24} color={c.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <Text style={[styles.subtitle, { color: colors.icon }]}>
+      <Text style={[styles.subtitle, { color: c.textSecondary }]}>
         Track your symptoms to monitor how you&apos;re feeling
       </Text>
 
@@ -274,9 +272,9 @@ export default function TrackerScreen() {
           const selectedCount = category.symptoms.filter(s => selected.has(s.id)).length;
           return (
             <View key={category.id} style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>
+              <Text style={[styles.sectionLabel, { color: c.textPrimary }]}>
                 {category.label}{' '}
-                <Text style={[styles.sectionCount, { color: colors.icon }]}>
+                <Text style={[styles.sectionCount, { color: c.textSecondary }]}>
                   {selectedCount}/{category.symptoms.length}
                 </Text>
               </Text>
@@ -311,7 +309,7 @@ export default function TrackerScreen() {
                         )}
                       </View>
                       <Text
-                        style={[styles.pillLabel, { color: colors.text }]}
+                        style={[styles.pillLabel, { color: c.textPrimary }]}
                         numberOfLines={2}
                         textBreakStrategy="simple"
                       >
@@ -329,7 +327,7 @@ export default function TrackerScreen() {
       </ScrollView>
 
       {/* ── Save button ── */}
-      <View style={[styles.footer, { backgroundColor: colors.background }]}>
+      <View style={[styles.footer, { backgroundColor: c.background }]}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
           <Text style={styles.saveButtonText}>Save</Text>
         </TouchableOpacity>
@@ -353,9 +351,9 @@ export default function TrackerScreen() {
             {/* Month navigation */}
             <View style={calStyles.monthNav}>
               <TouchableOpacity onPress={prevMonth} style={calStyles.navBtn} activeOpacity={0.6}>
-                <IconSymbol name="chevron.left" size={18} color={colors.text} />
+                <IconSymbol name="chevron.left" size={18} color={c.textPrimary} />
               </TouchableOpacity>
-              <Text style={[calStyles.monthLabel, { color: colors.text }]}>
+              <Text style={[calStyles.monthLabel, { color: c.textPrimary }]}>
                 {calMonthLabel}
               </Text>
               <TouchableOpacity
@@ -367,7 +365,7 @@ export default function TrackerScreen() {
                 <IconSymbol
                   name="chevron.right"
                   size={18}
-                  color={isCurrentMonth ? colors.icon : colors.text}
+                  color={isCurrentMonth ? c.textSecondary : c.textPrimary}
                 />
               </TouchableOpacity>
             </View>
@@ -375,7 +373,7 @@ export default function TrackerScreen() {
             {/* Day-of-week headers */}
             <View style={calStyles.dayHeaders}>
               {DAY_LABELS.map(d => (
-                <Text key={d} style={[calStyles.dayHeader, { color: colors.icon }]}>{d}</Text>
+                <Text key={d} style={[calStyles.dayHeader, { color: c.textSecondary }]}>{d}</Text>
               ))}
             </View>
 
@@ -413,7 +411,7 @@ export default function TrackerScreen() {
                     ]}>
                       <Text style={[
                         calStyles.dayNumber,
-                        { color: isToday ? '#FFFFFF' : isFuture ? colors.icon : colors.text },
+                        { color: isToday ? '#FFFFFF' : isFuture ? c.textSecondary : c.textPrimary },
                         isSelected && { color: '#8E74C8' },
                       ]}>
                         {date.getDate()}
@@ -430,7 +428,7 @@ export default function TrackerScreen() {
             {/* Day detail — slides in when a logged day is tapped */}
             {historyDay && (
               <View style={[calStyles.detail, { borderTopColor: borderColor }]}>
-                <Text style={[calStyles.detailDate, { color: colors.text }]}>
+                <Text style={[calStyles.detailDate, { color: c.textPrimary }]}>
                   {(() => {
                     const d = new Date(historyDay + 'T12:00:00');
                     const { weekday: wd, monthDay: md } = formatDayHeading(d);
@@ -438,7 +436,7 @@ export default function TrackerScreen() {
                   })()}
                 </Text>
                 {historySymptoms.length === 0 ? (
-                  <Text style={[calStyles.detailEmpty, { color: colors.icon }]}>
+                  <Text style={[calStyles.detailEmpty, { color: c.textSecondary }]}>
                     No symptoms logged
                   </Text>
                 ) : (

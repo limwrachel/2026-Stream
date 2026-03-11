@@ -71,9 +71,6 @@ export default function OnboardingRouter() {
     case OnboardingStep.PERMISSIONS:
       return <Redirect href={'/(onboarding)/permissions' as Href} />;
 
-    case OnboardingStep.HEALTH_DATA_TEST:
-      return <Redirect href={'/(onboarding)/health-data-test' as Href} />;
-
     case OnboardingStep.MEDICAL_HISTORY:
       return <Redirect href={'/(onboarding)/medical-history' as Href} />;
 

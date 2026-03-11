@@ -1,8 +1,12 @@
 /**
- * Firestore read service for Throne uroflow data.
+ * Firestore read/write service for Throne uroflow data.
  *
- * Reads sessions and metrics from Firestore collections
- * written by the Cloud Function ingestion pipeline.
+ * All Throne paths are scoped under users/{uid}:
+ *   throne_sessions/{sessionId}
+ *   throne_metrics/{metricId}
+ *
+ * Surgery date is stored at:
+ *   users/{uid}/surgery_date/current  →  { surgeryDate: "YYYY-MM-DD" }
  */
 
 import {
@@ -14,10 +18,10 @@ import {
   doc,
   getDoc,
   setDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import {db} from "./firebase";
 
-// Re-export the same types the mock module used, for compatibility
 export interface ThroneSession {
   id: string;
   studyId: string;
@@ -47,30 +51,22 @@ export interface ThroneMetric {
 }
 
 /**
- * Fetch sessions from Firestore.
- * Sorting and date range filtering done client-side.
- * By default only returns sessions that have at least one metric (metricCount > 0).
+ * Fetch sessions for a user from Firestore.
+ * Only returns sessions with at least one metric (metricCount > 0).
+ * Date range filtering is applied client-side after the query.
  */
-export async function fetchSessions(opts?: {
-  userId?: string;
+export async function fetchSessions(uid: string, opts?: {
   startDate?: Date;
   endDate?: Date;
 }): Promise<ThroneSession[]> {
-  const constraints: QueryConstraint[] = [];
+  const constraints: QueryConstraint[] = [
+    where("metricCount", ">", 0),
+  ];
 
-  if (opts?.userId) {
-    constraints.push(where("userId", "==", opts.userId));
-  }
-
-  // Only return sessions that have actual recorded metric data
-  constraints.push(where("metricCount", ">", 0));
-
-  const q = query(collection(db, "sessions"), ...constraints);
+  const q = query(collection(db, `users/${uid}/throne_sessions`), ...constraints);
   const snap = await getDocs(q);
+  let sessions = snap.docs.map((d) => d.data() as ThroneSession);
 
-  let sessions = snap.docs.map((doc) => doc.data() as ThroneSession);
-
-  // Client-side date filtering
   if (opts?.startDate || opts?.endDate) {
     const startMs = opts.startDate?.getTime() ?? 0;
     const endMs = opts.endDate?.getTime() ?? Infinity;
@@ -80,18 +76,16 @@ export async function fetchSessions(opts?: {
     });
   }
 
-  // Sort descending by startTs
   sessions.sort((a, b) => new Date(b.startTs).getTime() - new Date(a.startTs).getTime());
-
   return sessions;
 }
 
 /**
- * Batch-fetch metrics for multiple sessions in a single (or few) Firestore
- * queries. Firestore "in" supports up to 30 values, so large arrays are
- * automatically split into parallel batches.
+ * Batch-fetch metrics for multiple sessions.
+ * Firestore "in" supports up to 30 values — large arrays are split into
+ * parallel batches automatically.
  */
-export async function fetchMetricsBatch(sessionIds: string[]): Promise<ThroneMetric[]> {
+export async function fetchMetricsBatch(uid: string, sessionIds: string[]): Promise<ThroneMetric[]> {
   if (sessionIds.length === 0) return [];
 
   const BATCH_SIZE = 30;
@@ -101,76 +95,146 @@ export async function fetchMetricsBatch(sessionIds: string[]): Promise<ThroneMet
   }
 
   const snapshots = await Promise.all(
-    batches.map(batch =>
-      getDocs(query(collection(db, 'metrics'), where('sessionId', 'in', batch))),
+    batches.map((batch) =>
+      getDocs(query(
+        collection(db, `users/${uid}/throne_metrics`),
+        where("sessionId", "in", batch),
+      )),
     ),
   );
 
-  return snapshots.flatMap(snap => snap.docs.map(d => d.data() as ThroneMetric));
+  return snapshots.flatMap((snap) => snap.docs.map((d) => d.data() as ThroneMetric));
+}
+
+/**
+ * Fetch all metrics for a single session, sorted ascending by timestamp.
+ */
+export async function fetchMetricsForSession(uid: string, sessionId: string): Promise<ThroneMetric[]> {
+  const q = query(
+    collection(db, `users/${uid}/throne_metrics`),
+    where("sessionId", "==", sessionId),
+  );
+  const snap = await getDocs(q);
+  const metrics = snap.docs.map((d) => d.data() as ThroneMetric);
+  metrics.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+  return metrics;
 }
 
 // ─── Surgery Date ─────────────────────────────────────────────────────────────
 
 /**
- * Read surgery date from Firestore.
- * Tries: users/{uid}/profile.surgeryDate → users/{uid}/settings.surgeryDate
+ * Read surgery date from users/{uid}/surgery_date/current.
  * Returns an ISO date string (YYYY-MM-DD) or null if not set.
  */
 export async function fetchSurgeryDate(uid: string): Promise<string | null> {
-  const paths = [
-    `users/${uid}/profile`,
-    `users/${uid}`,
-    `users/${uid}/settings`,
-  ];
-
-  for (const path of paths) {
-    try {
-      const snap = await getDoc(doc(db, path));
-      if (snap.exists()) {
-        const data = snap.data();
-        const sd = data?.surgeryDate;
-        if (sd) {
-          // Handle Firestore Timestamp objects and ISO strings
-          if (typeof sd === 'string') return sd.slice(0, 10);
-          if (sd?.toDate) return (sd.toDate() as Date).toISOString().slice(0, 10);
-        }
-      }
-    } catch {
-      // Path may not exist — try next
+  try {
+    const snap = await getDoc(doc(db, `users/${uid}/surgery_date/current`));
+    if (snap.exists()) {
+      const sd = snap.data()?.surgeryDate;
+      if (typeof sd === "string" && sd) return sd.slice(0, 10);
+      if (sd?.toDate) return (sd.toDate() as Date).toISOString().slice(0, 10);
     }
+  } catch {
+    // Document may not exist — return null
   }
-
   return null;
 }
 
 /**
- * Persist surgery date to Firestore at users/{uid}/settings.
- * Uses merge so existing fields are not overwritten.
+ * Persist the Throne User ID to the root users/{uid} document.
+ *
+ * The syncThroneUserMap Cloud Function trigger watches users/{uid} and
+ * automatically creates the throneUserMap/{throneUserId} → { firebaseUid }
+ * reverse-lookup entry, so the ingestion function can route sessions to
+ * the correct user without any manual CRC steps.
  */
-export async function saveSurgeryDate(uid: string, dateStr: string): Promise<void> {
+export async function saveThroneUserId(uid: string, throneUserId: string): Promise<void> {
   await setDoc(
-    doc(db, 'users', uid, 'settings'),
-    { surgeryDate: dateStr },
+    doc(db, `users/${uid}`),
+    { throneUserId, throneUserIdSetAt: new Date().toISOString() },
     { merge: true },
   );
 }
 
 /**
- * Fetch all metrics for a given session, sorted by timestamp ascending.
+ * Persist surgery date to users/{uid}/surgery_date/current.
  */
-export async function fetchMetricsForSession(
-  sessionId: string,
-): Promise<ThroneMetric[]> {
-  const q = query(
-    collection(db, "metrics"),
-    where("sessionId", "==", sessionId),
+export async function saveSurgeryDate(uid: string, dateStr: string): Promise<void> {
+  await setDoc(
+    doc(db, `users/${uid}/surgery_date/current`),
+    { surgeryDate: dateStr, updatedAt: new Date().toISOString() },
+    { merge: true },
   );
+}
 
-  const snap = await getDocs(q);
-  const metrics = snap.docs.map((doc) => doc.data() as ThroneMetric);
+// ─── Medical History ──────────────────────────────────────────────────────────
 
-  // Sort ascending by timestamp client-side
-  metrics.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+export interface MedHistoryMedication {
+  name: string;
+  brandName?: string;
+  groupKey: string;          // alphaBlockers | fiveARIs | anticholinergics | beta3Agonists | otherBPH
+}
 
-  return metrics;
+export interface MedHistoryProcedure {
+  name: string;
+  commonName?: string;
+  date?: string;
+  isBPH: boolean;
+}
+
+export interface MedHistoryCondition {
+  name: string;
+}
+
+export interface MedHistoryLabValue {
+  value: number;
+  unit: string;
+  date: string;
+  referenceRange?: string;
+}
+
+export interface MedHistoryDocument {
+  // User-entered demographics
+  demographics: {
+    name: string;
+    ethnicity: string;
+    race: string;
+    // From HealthKit prefill (not user-entered)
+    age: number | null;
+    biologicalSex: string | null;
+    dateOfBirth: string | null;
+  };
+  // User-confirmed (possibly edited) from prefill
+  medications: MedHistoryMedication[];
+  surgicalHistory: MedHistoryProcedure[];
+  conditions: MedHistoryCondition[];
+  // From FHIR prefill only — not collected in user form
+  labs: {
+    psa: MedHistoryLabValue | null;
+    hba1c: MedHistoryLabValue | null;
+    urinalysis: MedHistoryLabValue | null;
+  };
+  clinicalMeasurements: {
+    pvr: MedHistoryLabValue | null;
+    uroflowQmax: MedHistoryLabValue | null;
+    volumeVoided: MedHistoryLabValue | null;
+    mobility: string | null;
+  };
+  savedAt: unknown;           // serverTimestamp()
+}
+
+/**
+ * Write combined medical history (user form + FHIR prefill remainder)
+ * to users/{uid}/medical_history/current.
+ * Overwrites on every call — always reflects latest confirmed data.
+ */
+export async function saveMedicalHistory(
+  uid: string,
+  data: Omit<MedHistoryDocument, 'savedAt'>,
+): Promise<void> {
+  await setDoc(
+    doc(db, `users/${uid}/medical_history/current`),
+    { ...data, savedAt: serverTimestamp() },
+    { merge: false },
+  );
 }

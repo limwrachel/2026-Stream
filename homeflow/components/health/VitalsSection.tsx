@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { VitalsInsight } from '@/lib/services/health-summary';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 interface VitalsSectionProps {
   insight: VitalsInsight;
@@ -79,18 +80,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.semibold,
     letterSpacing: 0.2,
   },
   headline: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: FontSize.titleSmall,
+    fontWeight: FontWeight.bold,
     letterSpacing: 0.38,
     marginBottom: 4,
   },
   supporting: {
-    fontSize: 15,
+    fontSize: FontSize.subhead,
     lineHeight: 22,
   },
   details: {
@@ -103,11 +104,11 @@ const styles = StyleSheet.create({
   },
   vitalLabel: {
     flex: 1,
-    fontSize: 15,
+    fontSize: FontSize.subhead,
   },
   vitalValue: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.semibold,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

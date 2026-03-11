@@ -19,7 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useAuth } from '@/lib/auth/auth-context';
+import { DEV_FIREBASE_UID } from '@/lib/constants';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 import {
   fetchSessions,
   fetchMetricsForSession,
@@ -87,8 +90,8 @@ const statStyles = StyleSheet.create({
     marginHorizontal: 4,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.medium,
     marginBottom: 4,
   },
   valueRow: {
@@ -97,12 +100,12 @@ const statStyles = StyleSheet.create({
     gap: 3,
   },
   value: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: FontSize.titleMedium,
+    fontWeight: FontWeight.bold,
   },
   unit: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.medium,
   },
 });
 
@@ -122,7 +125,7 @@ function FlowCurveChart({
   if (flowPoints.length === 0) {
     return (
       <View style={[chartStyles.empty, { height: chartHeight }]}>
-        <Text style={{ color: isDark ? '#EBEBF560' : '#3C3C4360', fontSize: 14 }}>
+        <Text style={{ color: isDark ? '#EBEBF560' : '#3C3C4360', fontSize: FontSize.subhead }}>
           No flow data recorded
         </Text>
       </View>
@@ -184,7 +187,7 @@ const chartStyles = StyleSheet.create({
     paddingRight: 6,
   },
   axisLabel: {
-    fontSize: 10,
+    fontSize: FontSize.chartAxis,
     textAlign: 'right',
   },
   barArea: {
@@ -215,6 +218,8 @@ export default function ThroneSessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { theme } = useAppTheme();
   const { isDark, colors: c } = theme;
+  const { user } = useAuth();
+  const uid = user?.id ?? (__DEV__ ? DEV_FIREBASE_UID : null);
 
   const [session, setSession] = useState<ThroneSession | undefined>();
   const [sessionMetrics, setSessionMetrics] = useState<ThroneMetric[]>([]);
@@ -224,11 +229,11 @@ export default function ThroneSessionDetailScreen() {
     let cancelled = false;
 
     async function load() {
-      if (!id) return;
+      if (!id || !uid) return;
       try {
         const [allSessions, metrics] = await Promise.all([
-          fetchSessions(),
-          fetchMetricsForSession(id),
+          fetchSessions(uid),
+          fetchMetricsForSession(uid, id),
         ]);
         if (!cancelled) {
           setSession(allSessions.find((s) => s.id === id));
@@ -241,7 +246,7 @@ export default function ThroneSessionDetailScreen() {
 
     load();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, uid]);
 
   // Extract summary stats
   const stats = useMemo(() => {
@@ -484,12 +489,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   backText: {
-    fontSize: 17,
-    fontWeight: '400',
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.regular,
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -501,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    fontSize: 17,
+    fontSize: FontSize.body,
   },
   card: {
     borderRadius: 12,
@@ -516,8 +521,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sessionStatus: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -531,8 +536,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.medium,
   },
   infoRow: {
     flexDirection: 'row',
@@ -542,17 +547,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   infoLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.medium,
   },
   infoValue: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.regular,
     maxWidth: '60%',
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.semibold,
     marginTop: 16,
     marginBottom: 8,
     marginLeft: 4,
@@ -569,7 +574,7 @@ const styles = StyleSheet.create({
     paddingLeft: 36,
   },
   axisText: {
-    fontSize: 10,
+    fontSize: FontSize.chartAxis,
   },
   tableRow: {
     flexDirection: 'row',
@@ -581,7 +586,7 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   tableCell: {
-    fontSize: 13,
+    fontSize: FontSize.footnote,
   },
   tableCellTime: {
     flex: 1,
@@ -589,6 +594,6 @@ const styles = StyleSheet.create({
   tableCellValue: {
     width: 80,
     textAlign: 'right',
-    fontWeight: '500',
+    fontWeight: FontWeight.medium,
   },
 });

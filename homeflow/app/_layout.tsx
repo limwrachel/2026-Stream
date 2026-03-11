@@ -1,13 +1,10 @@
-import React, { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import React, { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 // Global CSS for web (theming for alert dialogs, etc.) - only processed on web
 import '@/assets/styles/global.css';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/src/services/firebase';
 import { bootstrapHealthKitSync } from '@/src/services/healthkitSync';
 
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
@@ -17,6 +14,10 @@ import { LoadingScreen } from '@/components/ui/loading-screen';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { StandardProvider, useStandard } from '@/lib/services/standard-context';
 import { AppThemeProvider, useAppTheme } from '@/lib/theme/ThemeContext';
+
+// Module-level guard — survives Fast Refresh hot reloads (unlike useRef).
+// Prevents bootstrapHealthKitSync from firing more than once per UID per process.
+const _bootstrappedUids = new Set<string>();
 
 export const unstable_settings = {
   // Initial route while loading
@@ -35,29 +36,23 @@ function RootLayoutNav() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
   // Run bootstrapHealthKitSync exactly once per signed-in uid.
-  // A ref guard prevents re-firing on re-renders or context refreshes.
-  const lastBootstrappedUid = useRef<string | null>(null);
-
+  // Module-level Set survives Fast Refresh; a ref would reset on every hot reload.
   useEffect(() => {
     const uid = user?.id;
     if (!uid) return;
-    if (lastBootstrappedUid.current === uid) return;
-    lastBootstrappedUid.current = uid;
+    if (_bootstrappedUids.has(uid)) return;
+    _bootstrappedUids.add(uid);
 
-    // Guaranteed debug write — confirms the app can reach Firestore.
-    const pingPath = `debug/ping-${uid}`;
-    setDoc(doc(db, pingPath), {
-      ok: true,
-      ts: serverTimestamp(),
-      platform: Platform.OS,
-    })
-      .then(() => console.log(`[Firebase] Wrote debug ping: ${pingPath}`))
-      .catch((err) => console.error("[Firebase] Debug ping write failed:", err));
+    // Delay 4 s so the home screen's HealthKit queries (12 parallel reads) complete
+    // first. HealthKit serializes concurrent queries — without the delay the sync
+    // pipeline backs them up and the UI feels frozen on first load.
+    const timer = setTimeout(() => {
+      bootstrapHealthKitSync().catch((err) =>
+        console.error("[HealthKit] bootstrapHealthKitSync error:", err),
+      );
+    }, 4000);
 
-    // Bootstrap HealthKit → Firestore sync (fire-and-forget; never throws).
-    bootstrapHealthKitSync().catch((err) =>
-      console.error("[HealthKit] bootstrapHealthKitSync error:", err),
-    );
+    return () => clearTimeout(timer);
   }, [user?.id]);
 
   // Run 48-hour data sync check only when user is fully in the app
@@ -117,12 +112,6 @@ function RootLayoutNav() {
       {/* Post-surgery recovery instructions (Stanford HoLEP discharge) */}
       <Stack.Screen
         name="post-surgery-recovery"
-        options={{ headerShown: false }}
-      />
-
-      {/* Dev-only: FHIR parser test screen (accessible from Profile > Developer) */}
-      <Stack.Screen
-        name="fhir-parser-test"
         options={{ headerShown: false }}
       />
 

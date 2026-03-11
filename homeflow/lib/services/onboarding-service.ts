@@ -18,6 +18,8 @@ export interface OnboardingData {
     hasBPHDiagnosis: boolean;
     consideringSurgery: boolean;
     isEligible: boolean;
+    /** YYYY-MM-DD string of the scheduled surgery date, if provided */
+    surgeryDate?: string;
   };
 
   // Medical history (from chatbot)

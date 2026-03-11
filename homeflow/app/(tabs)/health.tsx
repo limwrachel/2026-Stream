@@ -13,6 +13,7 @@ import { SleepSection } from '@/components/health/SleepSection';
 import { ActivitySection } from '@/components/health/ActivitySection';
 import { VitalsSection } from '@/components/health/VitalsSection';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 export default function HealthScreen() {
   const { theme } = useAppTheme();
@@ -122,17 +123,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   dateLabel: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.regular,
     marginBottom: 2,
   },
   greeting: {
-    fontSize: 34,
-    fontWeight: '700',
+    fontSize: FontSize.display,
+    fontWeight: FontWeight.bold,
     letterSpacing: 0.37,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: FontSize.subhead,
     textAlign: 'center',
     lineHeight: 22,
   },

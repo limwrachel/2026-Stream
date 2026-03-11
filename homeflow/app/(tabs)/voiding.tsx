@@ -30,7 +30,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 import { useAuth } from '@/lib/auth/auth-context';
+import { DEV_FIREBASE_UID } from '@/lib/constants';
 import {
   fetchSessions,
   fetchMetricsBatch,
@@ -149,7 +151,7 @@ function PillRow<T extends string | number>({
 const pillStyles = StyleSheet.create({
   row:  { flexDirection: 'row', gap: 8 },
   pill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
-  text: { fontSize: 13, fontWeight: '600' },
+  text: { fontSize: FontSize.caption, fontWeight: FontWeight.semibold },
 });
 
 /** A single metric summary card. */
@@ -179,10 +181,10 @@ function StatCard({
 
 const statStyles = StyleSheet.create({
   card:     { flex: 1, borderRadius: 12, padding: 14, marginHorizontal: 4 },
-  label:    { fontSize: 11, fontWeight: '500', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
+  label:    { fontSize: FontSize.micro, fontWeight: FontWeight.medium, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
   valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
-  value:    { fontSize: 22, fontWeight: '700' },
-  unit:     { fontSize: 12, fontWeight: '500' },
+  value:    { fontSize: FontSize.titleMedium, fontWeight: FontWeight.bold },
+  unit:     { fontSize: FontSize.caption, fontWeight: FontWeight.medium },
 });
 
 /** Bar chart — same approach as throne-session.tsx FlowCurveChart. */
@@ -273,15 +275,15 @@ function TrendBarChart({
 const chartStyles = StyleSheet.create({
   chartRow:  { flexDirection: 'row', alignItems: 'stretch' },
   yAxis:     { width: 36, justifyContent: 'space-between', paddingRight: 6, alignItems: 'flex-end' },
-  axisLabel: { fontSize: 9 },
+  axisLabel: { fontSize: FontSize.chartAxis },
   barArea:   { flex: 1, position: 'relative' },
   gridLine:  { position: 'absolute', left: 0, right: 0, borderBottomWidth: StyleSheet.hairlineWidth },
   barRow:    { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 4, paddingBottom: 0 },
   barWrapper:{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   xRow:      { flexDirection: 'row', marginTop: 4 },
-  xLabel:    { fontSize: 9 },
+  xLabel:    { fontSize: FontSize.chartAxis },
   empty:     { justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 13 },
+  emptyText: { fontSize: FontSize.footnote },
 });
 
 /** One column of the pre/post comparison card. */
@@ -353,14 +355,14 @@ function ComparisonColumn({
 
 const cmpStyles = StyleSheet.create({
   column:      { flex: 1 },
-  columnTitle: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
-  columnSub:   { fontSize: 11, marginBottom: 10 },
-  noData:      { fontSize: 12, fontStyle: 'italic', marginTop: 8 },
+  columnTitle: { fontSize: FontSize.footnote, fontWeight: FontWeight.semibold, marginBottom: 2 },
+  columnSub:   { fontSize: FontSize.micro, marginBottom: 10 },
+  noData:      { fontSize: FontSize.caption, fontStyle: 'italic', marginTop: 8 },
   row:         { marginBottom: 8 },
-  rowLabel:    { fontSize: 11, fontWeight: '500', marginBottom: 2 },
+  rowLabel:    { fontSize: FontSize.micro, fontWeight: FontWeight.medium, marginBottom: 2 },
   rowValueRow: { flexDirection: 'row', alignItems: 'baseline' },
-  rowValue:    { fontSize: 16, fontWeight: '600' },
-  rowUnit:     { fontSize: 11, fontWeight: '400' },
+  rowValue:    { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold },
+  rowUnit:     { fontSize: FontSize.micro, fontWeight: FontWeight.regular },
 });
 
 /** Delta badge shown below the comparison columns. */
@@ -386,7 +388,7 @@ function DeltaBadge({
     <View style={[deltaStyles.badge, { backgroundColor: c.secondaryFill }]}>
       <Text style={[deltaStyles.text, { color: c.textSecondary }]}>
         {label}:{' '}
-        <Text style={{ color: c.textPrimary, fontWeight: '600' }}>
+        <Text style={{ color: c.textPrimary, fontWeight: FontWeight.semibold }}>
           {sign}{delta.toFixed(1)} {unit}
         </Text>
         <Text style={{ color: c.textTertiary }}>{pctStr}</Text>
@@ -397,7 +399,7 @@ function DeltaBadge({
 
 const deltaStyles = StyleSheet.create({
   badge: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginTop: 10 },
-  text:  { fontSize: 12 },
+  text:  { fontSize: FontSize.caption },
 });
 
 // ─── Surgery Date Picker Modal ────────────────────────────────────────────────
@@ -523,16 +525,16 @@ function SurgeryDateModal({
 const mdlStyles = StyleSheet.create({
   overlay:     { flex: 1, backgroundColor: '#00000066', justifyContent: 'center', alignItems: 'center' },
   sheet:       { borderRadius: 20, padding: 24, width: '80%', alignItems: 'center' },
-  title:       { fontSize: 17, fontWeight: '600', marginBottom: 4 },
-  sub:         { fontSize: 13, textAlign: 'center', marginBottom: 24 },
+  title:       { fontSize: FontSize.headline, fontWeight: FontWeight.semibold, marginBottom: 4 },
+  sub:         { fontSize: FontSize.footnote, textAlign: 'center', marginBottom: 24 },
   pickersRow:  { flexDirection: 'row', gap: 24, marginBottom: 28 },
   pickerCol:   { alignItems: 'center', gap: 8, minWidth: 56 },
-  pickerLabel: { fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.3 },
-  arrow:       { fontSize: 18, fontWeight: '600' },
-  pickerValue: { fontSize: 20, fontWeight: '600', minWidth: 44, textAlign: 'center' },
+  pickerLabel: { fontSize: FontSize.micro, fontWeight: FontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.3 },
+  arrow:       { fontSize: FontSize.headline, fontWeight: FontWeight.semibold },
+  pickerValue: { fontSize: FontSize.titleSmall, fontWeight: FontWeight.semibold, minWidth: 44, textAlign: 'center' },
   buttonRow:   { flexDirection: 'row', gap: 12 },
   btn:         { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  btnText:     { fontSize: 15, fontWeight: '600' },
+  btnText:     { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -541,7 +543,7 @@ export default function VoidingScreen() {
   const { theme } = useAppTheme();
   const { isDark, colors: c } = theme;
   const { user } = useAuth();
-  const uid = user?.id ?? null;
+  const uid = user?.id ?? (__DEV__ ? DEV_FIREBASE_UID : null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [range,          setRange]          = useState<RangeKey>('1w');
@@ -592,14 +594,15 @@ export default function VoidingScreen() {
     async function load() {
       try {
         const startDate = new Date(Date.now() - NINETY_DAYS_MS);
-        const data = await fetchSessions({ startDate });
+        if (!uid) return;
+        const data = await fetchSessions(uid, { startDate });
         if (cancelled) return;
         setAllSessions(data);
 
         // Batch-fetch metrics for all sessions
         if (data.length > 0) {
           const ids = data.map(s => s.id);
-          const metrics = await fetchMetricsBatch(ids);
+          const metrics = await fetchMetricsBatch(uid, ids);
           if (cancelled) return;
 
           // Build a Map: sessionId → ThroneMetric[]
@@ -621,7 +624,7 @@ export default function VoidingScreen() {
 
     load();
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, uid]);
 
   // ─── Pull-to-refresh ──────────────────────────────────────────────────────
   const handleRefresh = useCallback(() => {
@@ -1050,8 +1053,8 @@ function MetricChip({
 
 const chipStyles = StyleSheet.create({
   chip:  { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  label: { fontSize: 11, fontWeight: '500' },
-  value: { fontSize: 11, fontWeight: '600' },
+  label: { fontSize: FontSize.micro, fontWeight: FontWeight.medium },
+  value: { fontSize: FontSize.micro, fontWeight: FontWeight.semibold },
 });
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -1062,53 +1065,53 @@ const styles = StyleSheet.create({
   list:          { paddingHorizontal: 16, paddingBottom: 40 },
   emptyState:    { paddingTop: 24, alignItems: 'center' },
 
-  header:        { fontSize: 34, fontWeight: '700', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  subtitle:      { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  header:        { fontSize: FontSize.display, fontWeight: FontWeight.bold, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  subtitle:      { fontSize: FontSize.subhead, textAlign: 'center', lineHeight: 22 },
 
   titleRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                    paddingRight: 16, marginBottom: 4 },
   chip:          { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
-  chipText:      { fontSize: 11, fontWeight: '600' },
+  chipText:      { fontSize: FontSize.micro, fontWeight: FontWeight.semibold },
 
   controlsCard:  { paddingHorizontal: 16, marginBottom: 10 },
 
-  sectionLabel:  { fontSize: 13, fontWeight: '500', marginTop: 20, marginBottom: 8, marginLeft: 4 },
+  sectionLabel:  { fontSize: FontSize.footnote, fontWeight: FontWeight.semibold, marginTop: 20, marginBottom: 8, marginLeft: 4 },
   statsRow:      { flexDirection: 'row', marginBottom: 4 },
 
   card:          { borderRadius: 14, padding: 16, marginBottom: 10 },
   chartMetaRow:  { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 12 },
-  chartMetric:   { fontSize: 14, fontWeight: '600' },
-  chartUnit:     { fontSize: 11 },
+  chartMetric:   { fontSize: FontSize.footnote, fontWeight: FontWeight.semibold },
+  chartUnit:     { fontSize: FontSize.micro },
 
   // CTA card
-  ctaTitle:      { fontSize: 15, fontWeight: '600', marginBottom: 6 },
-  ctaBody:       { fontSize: 13, lineHeight: 18, marginBottom: 16 },
+  ctaTitle:      { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold, marginBottom: 6 },
+  ctaBody:       { fontSize: FontSize.footnote, lineHeight: 18, marginBottom: 16 },
   ctaButton:     { paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  ctaButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  ctaButtonText: { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold, color: '#FFFFFF' },
 
   // Comparison
   cmpHeader:     { marginBottom: 4 },
   cmpToggleRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cmpToggleLabel:{ fontSize: 14, fontWeight: '500' },
+  cmpToggleLabel:{ fontSize: FontSize.subhead, fontWeight: FontWeight.medium },
   separator:     { height: StyleSheet.hairlineWidth, marginVertical: 14 },
   windowControls:{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  windowLabel:   { fontSize: 11, fontWeight: '500', minWidth: 72 },
+  windowLabel:   { fontSize: FontSize.micro, fontWeight: FontWeight.medium, minWidth: 72 },
   cmpColumns:    { flexDirection: 'row', gap: 0 },
   cmpDivider:    { width: StyleSheet.hairlineWidth, marginHorizontal: 16 },
 
   // Session list
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
                    paddingTop: 8, paddingBottom: 6 },
-  sectionTitle:  { fontSize: 15, fontWeight: '600' },
-  sectionCount:  { fontSize: 12, fontWeight: '500' },
+  sectionTitle:  { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold },
+  sectionCount:  { fontSize: FontSize.caption, fontWeight: FontWeight.medium },
 
   cardRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  cardTime:      { fontSize: 16, fontWeight: '600' },
-  cardStatus:    { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  cardTime:      { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold },
+  cardStatus:    { fontSize: FontSize.micro, fontWeight: FontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
   metricChips:   { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
-  cardChevron:   { fontSize: 18, fontWeight: '300', paddingLeft: 8 },
+  cardChevron:   { fontSize: FontSize.headline, fontWeight: '300', paddingLeft: 8 },
 
   tagsRow:       { flexDirection: 'row', gap: 6, marginTop: 4 },
   tag:           { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  tagText:       { fontSize: 11, fontWeight: '500' },
+  tagText:       { fontSize: FontSize.micro, fontWeight: FontWeight.medium },
 });

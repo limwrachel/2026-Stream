@@ -33,16 +33,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, StanfordColors, Spacing } from '@/constants/theme';
 import { OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
-import { OnboardingProgressBar, ContinueButton, DevToolBar } from '@/components/onboarding';
+import { OnboardingProgressBar, ContinueButton } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getAllClinicalRecords } from '@/lib/services/healthkit';
 import { getDemographics } from '@/lib/services/healthkit/HealthKitClient';
 import {
   buildMedicalHistoryPrefill,
   type MedicalHistoryPrefill,
+  type LabValue,
 } from '@/lib/services/fhir';
 import { BPH_DRUGS } from '@/lib/services/fhir/codes';
 import { getMockClinicalRecords, getMockDemographics } from '@/lib/services/healthkit/mock-health-data';
+import { saveMedicalHistory } from '@/src/services/throneFirestore';
+import { getAuth } from '@/src/services/firestore';
+import { ConsentService } from '@/lib/services/consent-service';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -57,6 +61,13 @@ const STEP_DESCRIPTIONS = [
   'Recent lab results found in your health records.',
   'Medical conditions found in your health records.',
   'Bladder and urinary function measurements.',
+] as const;
+
+const SEX_OPTIONS = [
+  'Male',
+  'Female',
+  'Intersex',
+  'Prefer not to say',
 ] as const;
 
 const ETHNICITY_OPTIONS = [
@@ -76,6 +87,7 @@ const RACE_OPTIONS = [
 ] as const;
 
 type DemoStage = 'name' | 'ethnicity' | 'race' | 'done';
+type PickerField = 'ethnicity' | 'race' | 'biologicalSex';
 
 // Common patient-facing names for surgical procedures, matched by keyword
 const PROCEDURE_COMMON_NAMES: { keywords: string[]; commonName: string }[] = [
@@ -174,6 +186,145 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+// ── Shared sub-components (module-level to prevent remount on re-render) ──────
+//
+// IMPORTANT: These must live outside MedicalHistoryScreen. Defining components
+// inside the parent function gives them a new reference on every render, which
+// causes React to unmount/remount them (losing TextInput focus on each keystroke).
+
+type RowColors = { icon: string; text: string };
+
+function DataRow({
+  label,
+  value,
+  found,
+  placeholder = 'will ask',
+  showBadge = true,
+  onPress,
+  colors,
+  borderColor,
+}: {
+  label: string;
+  value: string | null | undefined;
+  found: boolean;
+  placeholder?: string;
+  showBadge?: boolean;
+  onPress?: () => void;
+  colors: RowColors;
+  borderColor: string;
+}) {
+  const inner = (
+    <>
+      <Text style={[reviewStyles.dataLabel, { color: colors.icon }]}>{label}</Text>
+      <View style={reviewStyles.dataRight}>
+        {found && value ? (
+          <>
+            <Text style={[reviewStyles.dataValue, { color: colors.text }]}>{value}</Text>
+            {showBadge && (
+              <View style={reviewStyles.sourceBadge}>
+                <Text style={reviewStyles.sourceBadgeText}>Apple Health</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <Text style={[reviewStyles.willAskText, { color: colors.icon }]}>
+            {placeholder}
+          </Text>
+        )}
+      </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}>
+      {inner}
+    </View>
+  );
+}
+
+function InlineInputRow({
+  label,
+  value,
+  onChange,
+  onSubmit,
+  keyboardType = 'default',
+  autoFocus: af = true,
+  placeholder = 'Type here…',
+  autoCapitalize = 'words',
+  colors,
+  borderColor,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  keyboardType?: 'default' | 'numeric' | 'number-pad';
+  autoFocus?: boolean;
+  placeholder?: string;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  colors: RowColors;
+  borderColor: string;
+}) {
+  return (
+    <View style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}>
+      <Text style={[reviewStyles.dataLabel, { color: colors.icon }]}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        onSubmitEditing={onSubmit}
+        returnKeyType="done"
+        autoFocus={af}
+        keyboardType={keyboardType}
+        style={[reviewStyles.inlineInput, { color: colors.text }]}
+        placeholderTextColor={colors.icon}
+        placeholder={placeholder}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={false}
+      />
+    </View>
+  );
+}
+
+function SelectDataRow({
+  label,
+  onPress,
+  colors,
+  borderColor,
+}: {
+  label: string;
+  onPress: () => void;
+  colors: RowColors;
+  borderColor: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}
+      onPress={onPress}
+      activeOpacity={0.6}
+    >
+      <Text style={[reviewStyles.dataLabel, { color: colors.icon }]}>{label}</Text>
+      <View style={reviewStyles.dataRight}>
+        <Text style={[reviewStyles.selectHint, { color: StanfordColors.cardinal }]}>
+          Tap to select
+        </Text>
+        <IconSymbol name="chevron.right" size={13} color={StanfordColors.cardinal} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────
 
 export default function MedicalHistoryScreen() {
@@ -189,12 +340,14 @@ export default function MedicalHistoryScreen() {
 
   // Demographics sequential input state
   const [demoName, setDemoName] = useState('');
+  const [demoAge, setDemoAge] = useState('');
+  const [demoBiologicalSex, setDemoBiologicalSex] = useState('');
   const [demoEthnicity, setDemoEthnicity] = useState('');
   const [demoRace, setDemoRace] = useState('');
   const [demoStage, setDemoStage] = useState<DemoStage>('name');
   const [demoEditingField, setDemoEditingField] = useState<'name' | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [pickerField, setPickerField] = useState<'ethnicity' | 'race'>('ethnicity');
+  const [pickerField, setPickerField] = useState<PickerField>('ethnicity');
 
   // Editable medication/procedure items (local copies initialized from prefill)
   const [editableMeds, setEditableMeds] = useState<EditableMedItem[]>([]);
@@ -277,6 +430,8 @@ export default function MedicalHistoryScreen() {
       setReviewStep(0);
       setCorrectionsNeeded(new Set());
       setDemoName('');
+      setDemoAge('');
+      setDemoBiologicalSex('');
       setDemoEthnicity('');
       setDemoRace('');
       setDemoStage('name');
@@ -290,6 +445,20 @@ export default function MedicalHistoryScreen() {
   useEffect(() => {
     loadPrefillData();
   }, [loadPrefillData]);
+
+  // Pre-fill name from typed consent signature so the user doesn't enter it twice
+  useEffect(() => {
+    let cancelled = false;
+    ConsentService.getConsentRecord().then((record) => {
+      if (cancelled) return;
+      const sig = record?.participantSignature;
+      if (sig && sig !== '[Drawn signature provided]') {
+        setDemoName(sig);
+        setDemoStage('ethnicity');
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Review step navigation ────────────────────────────────────────
 
@@ -333,13 +502,15 @@ export default function MedicalHistoryScreen() {
     if (pickerField === 'ethnicity') {
       setDemoEthnicity(value);
       setDemoStage('race');
-    } else {
+    } else if (pickerField === 'race') {
       setDemoRace(value);
       setDemoStage('done');
+    } else {
+      setDemoBiologicalSex(value);
     }
   }, [pickerField]);
 
-  const openPicker = useCallback((field: 'ethnicity' | 'race') => {
+  const openPicker = useCallback((field: PickerField) => {
     setPickerField(field);
     setPickerVisible(true);
   }, []);
@@ -395,6 +566,8 @@ export default function MedicalHistoryScreen() {
 
     const demoSummary = [
       demoName && `Name: ${demoName}`,
+      demoAge && `Age: ${demoAge}`,
+      demoBiologicalSex && `Sex: ${demoBiologicalSex}`,
       demoEthnicity && `Ethnicity: ${demoEthnicity}`,
       demoRace && `Race: ${demoRace}`,
     ].filter(Boolean).join(', ');
@@ -410,6 +583,51 @@ export default function MedicalHistoryScreen() {
       },
     });
 
+    // ── Write combined medical_history/current to Firestore ──────────
+    // User form data + FHIR prefill for fields not collected in the form
+    // (labs, clinical measurements, HK demographics).
+    const uid = getAuth().currentUser?.uid;
+    if (uid) {
+      const labEntry = (entry: { value: LabValue | null } | undefined) =>
+        entry?.value ?? null;
+
+      saveMedicalHistory(uid, {
+        demographics: {
+          name: demoName,
+          ethnicity: demoEthnicity,
+          race: demoRace,
+          age: prefillData?.demographics.age.value ?? (demoAge ? parseInt(demoAge, 10) : null),
+          biologicalSex: prefillData?.demographics.biologicalSex.value ?? (demoBiologicalSex || null),
+          dateOfBirth: null,   // not exposed by HealthKit demographics API
+        },
+        medications: editableMeds.map(m => ({
+          name: m.name,
+          brandName: m.brandName,
+          groupKey: m.groupKey,
+        })),
+        surgicalHistory: editableProcs.map(p => ({
+          name: p.name,
+          commonName: p.commonName,
+          date: p.date,
+          isBPH: p.isBPH,
+        })),
+        conditions: conditions.map(name => ({ name })),
+        labs: {
+          psa: labEntry(prefillData?.labs.psa),
+          hba1c: labEntry(prefillData?.labs.hba1c),
+          urinalysis: labEntry(prefillData?.labs.urinalysis),
+        },
+        clinicalMeasurements: {
+          pvr: labEntry(prefillData?.clinicalMeasurements.pvr),
+          uroflowQmax: labEntry(prefillData?.clinicalMeasurements.uroflowQmax),
+          volumeVoided: labEntry(prefillData?.clinicalMeasurements.volumeVoided),
+          mobility: prefillData?.clinicalMeasurements.mobility.value ?? null,
+        },
+      }).catch((err) => {
+        console.warn('[MedicalHistory] Failed to save to Firestore:', err);
+      });
+    }
+
     await OnboardingService.goToStep(OnboardingStep.BASELINE_SURVEY);
     router.push('/(onboarding)/baseline-survey' as Href);
   };
@@ -419,118 +637,6 @@ export default function MedicalHistoryScreen() {
   const cardBg = isDark ? '#1E2022' : '#F5F5F7';
   const sectionBg = isDark ? '#2A2D2F' : '#FFFFFF';
   const borderColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
-
-  // ── Sub-render helpers ────────────────────────────────────────────
-
-  function DataRow({
-    label,
-    value,
-    found,
-    placeholder = 'will ask',
-    showBadge = true,
-    onPress,
-  }: {
-    label: string;
-    value: string | null | undefined;
-    found: boolean;
-    placeholder?: string;
-    showBadge?: boolean;
-    onPress?: () => void;
-  }) {
-    const inner = (
-      <>
-        <Text style={[reviewStyles.dataLabel, { color: colors.icon }]}>{label}</Text>
-        <View style={reviewStyles.dataRight}>
-          {found && value ? (
-            <>
-              <Text style={[reviewStyles.dataValue, { color: colors.text }]}>{value}</Text>
-              {showBadge && (
-                <View style={reviewStyles.sourceBadge}>
-                  <Text style={reviewStyles.sourceBadgeText}>Apple Health</Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <Text style={[reviewStyles.willAskText, { color: colors.icon }]}>
-              {placeholder}
-            </Text>
-          )}
-        </View>
-      </>
-    );
-
-    if (onPress) {
-      return (
-        <TouchableOpacity
-          style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}
-          onPress={onPress}
-          activeOpacity={0.7}
-        >
-          {inner}
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <View style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}>
-        {inner}
-      </View>
-    );
-  }
-
-  function InlineInputRow({
-    label,
-    value,
-    onChange,
-    onSubmit,
-  }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    onSubmit: () => void;
-  }) {
-    return (
-      <View style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}>
-        <Text style={[reviewStyles.dataLabel, { color: colors.icon }]}>{label}</Text>
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          onSubmitEditing={onSubmit}
-          returnKeyType="done"
-          autoFocus
-          style={[reviewStyles.inlineInput, { color: colors.text }]}
-          placeholderTextColor={colors.icon}
-          placeholder="Type here…"
-          autoCapitalize="words"
-          autoCorrect={false}
-        />
-      </View>
-    );
-  }
-
-  function SelectDataRow({
-    label,
-    onPress,
-  }: {
-    label: string;
-    onPress: () => void;
-  }) {
-    return (
-      <TouchableOpacity
-        style={[reviewStyles.dataRow, { borderBottomColor: borderColor }]}
-        onPress={onPress}
-        activeOpacity={0.6}
-      >
-        <Text style={[reviewStyles.dataLabel, { color: colors.icon }]}>{label}</Text>
-        <View style={reviewStyles.dataRight}>
-          <Text style={[reviewStyles.selectHint, { color: StanfordColors.cardinal }]}>
-            Tap to select
-          </Text>
-          <IconSymbol name="chevron.right" size={13} color={StanfordColors.cardinal} />
-        </View>
-      </TouchableOpacity>
-    );
-  }
 
   function ProcedureSection({ label, items }: { label: string; items: EditableProcItem[] }) {
     return (
@@ -604,21 +710,57 @@ export default function MedicalHistoryScreen() {
       case 0:
         return (
           <View style={[reviewStyles.card, { backgroundColor: sectionBg }]}>
-            {/* Apple Health fields — always static */}
-            <DataRow
-              label="Age"
-              value={prefillData.demographics.age.value != null
-                ? `${prefillData.demographics.age.value} years`
-                : null}
-              found={prefillData.demographics.age.confidence !== 'none'}
-            />
-            <DataRow
-              label="Biological Sex"
-              value={prefillData.demographics.biologicalSex.value
-                ? capitalize(prefillData.demographics.biologicalSex.value)
-                : null}
-              found={prefillData.demographics.biologicalSex.confidence !== 'none'}
-            />
+            {/* Age — static if from Apple Health, editable input otherwise */}
+            {prefillData.demographics.age.confidence !== 'none' && prefillData.demographics.age.value != null ? (
+              <DataRow
+                label="Age"
+                value={`${prefillData.demographics.age.value} years`}
+                found
+                colors={colors}
+                borderColor={borderColor}
+              />
+            ) : (
+              <InlineInputRow
+                label="Age"
+                value={demoAge}
+                onChange={setDemoAge}
+                onSubmit={() => {}}
+                keyboardType="number-pad"
+                autoFocus={false}
+                placeholder="Enter age in years"
+                autoCapitalize="none"
+                colors={colors}
+                borderColor={borderColor}
+              />
+            )}
+
+            {/* Biological Sex — static if from Apple Health, picker otherwise */}
+            {prefillData.demographics.biologicalSex.confidence !== 'none' && prefillData.demographics.biologicalSex.value ? (
+              <DataRow
+                label="Biological Sex"
+                value={capitalize(prefillData.demographics.biologicalSex.value)}
+                found
+                colors={colors}
+                borderColor={borderColor}
+              />
+            ) : demoBiologicalSex ? (
+              <DataRow
+                label="Biological Sex"
+                value={demoBiologicalSex}
+                found
+                showBadge={false}
+                onPress={() => handleFieldDoubleTap('biologicalSex', () => openPicker('biologicalSex'))}
+                colors={colors}
+                borderColor={borderColor}
+              />
+            ) : (
+              <SelectDataRow
+                label="Biological Sex"
+                onPress={() => openPicker('biologicalSex')}
+                colors={colors}
+                borderColor={borderColor}
+              />
+            )}
 
             {/* Full Name — inline input on initial entry or when re-editing */}
             {(demoStage === 'name' || demoEditingField === 'name') ? (
@@ -633,6 +775,8 @@ export default function MedicalHistoryScreen() {
                     setDemoEditingField(null);
                   }
                 }}
+                colors={colors}
+                borderColor={borderColor}
               />
             ) : (
               <DataRow
@@ -641,6 +785,8 @@ export default function MedicalHistoryScreen() {
                 found
                 showBadge={false}
                 onPress={() => handleFieldDoubleTap('name', () => setDemoEditingField('name'))}
+                colors={colors}
+                borderColor={borderColor}
               />
             )}
 
@@ -653,9 +799,16 @@ export default function MedicalHistoryScreen() {
                   found
                   showBadge={false}
                   onPress={() => handleFieldDoubleTap('ethnicity', () => openPicker('ethnicity'))}
+                  colors={colors}
+                  borderColor={borderColor}
                 />
               ) : (
-                <SelectDataRow label="Ethnicity" onPress={() => openPicker('ethnicity')} />
+                <SelectDataRow
+                  label="Ethnicity"
+                  onPress={() => openPicker('ethnicity')}
+                  colors={colors}
+                  borderColor={borderColor}
+                />
               )
             )}
 
@@ -668,9 +821,16 @@ export default function MedicalHistoryScreen() {
                   found
                   showBadge={false}
                   onPress={() => handleFieldDoubleTap('race', () => openPicker('race'))}
+                  colors={colors}
+                  borderColor={borderColor}
                 />
               ) : (
-                <SelectDataRow label="Race" onPress={() => openPicker('race')} />
+                <SelectDataRow
+                  label="Race"
+                  onPress={() => openPicker('race')}
+                  colors={colors}
+                  borderColor={borderColor}
+                />
               )
             )}
           </View>
@@ -1132,7 +1292,6 @@ export default function MedicalHistoryScreen() {
             Looking for medications, conditions, and procedures
           </Text>
         </View>
-        <DevToolBar currentStep={OnboardingStep.MEDICAL_HISTORY} onContinue={handleContinue} />
       </SafeAreaView>
     );
   }
@@ -1226,7 +1385,7 @@ export default function MedicalHistoryScreen() {
           </>
         )}
 
-        {/* Bottom sheet picker for Ethnicity / Race */}
+        {/* Bottom sheet picker for Ethnicity / Race / Biological Sex */}
         <Modal
           visible={pickerVisible}
           transparent
@@ -1237,12 +1396,14 @@ export default function MedicalHistoryScreen() {
             <Pressable style={[reviewStyles.pickerSheet, { backgroundColor: sectionBg }]}>
               <View style={[reviewStyles.pickerHandle, { backgroundColor: borderColor }]} />
               <Text style={[reviewStyles.pickerTitle, { color: colors.icon }]}>
-                {pickerField === 'ethnicity' ? 'ETHNICITY' : 'RACE'}
+                {pickerField === 'ethnicity' ? 'ETHNICITY' : pickerField === 'race' ? 'RACE' : 'BIOLOGICAL SEX'}
               </Text>
-              {(pickerField === 'ethnicity' ? ETHNICITY_OPTIONS : RACE_OPTIONS).map(option => {
+              {(pickerField === 'ethnicity' ? ETHNICITY_OPTIONS : pickerField === 'race' ? RACE_OPTIONS : SEX_OPTIONS).map(option => {
                 const selected = pickerField === 'ethnicity'
                   ? demoEthnicity === option
-                  : demoRace === option;
+                  : pickerField === 'race'
+                  ? demoRace === option
+                  : demoBiologicalSex === option;
                 return (
                   <TouchableOpacity
                     key={option}
@@ -1263,17 +1424,6 @@ export default function MedicalHistoryScreen() {
           </Pressable>
         </Modal>
 
-        <DevToolBar
-          currentStep={OnboardingStep.MEDICAL_HISTORY}
-          onContinue={handleContinue}
-          extraActions={__DEV__ ? [
-            {
-              label: 'Use Mock',
-              color: '#5856D6',
-              onPress: () => loadPrefillData(true),
-            },
-          ] : undefined}
-        />
       </SafeAreaView>
     );
   }

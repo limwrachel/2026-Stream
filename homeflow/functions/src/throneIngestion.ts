@@ -2,12 +2,18 @@
  * Throne Research API Ingestion Module
  *
  * Fetches uroflow session data from Throne Research API,
- * normalizes sessions + metrics, and writes to Firestore.
+ * normalizes sessions + metrics, and writes to Firestore
+ * under each participant's user document.
  *
- * Firestore schema:
- *   sessions/{sessionId}   — NormalizedSession + studyId
- *   metrics/{metricId}     — NormalizedMetric + studyId
- *   throneSync/{studyId}   — SyncState (lastRunAt, lastLtTs, etc.)
+ * Firestore schema (per user):
+ *   users/{firebaseUid}/throne_sessions/{sessionId}  — NormalizedSession
+ *   users/{firebaseUid}/throne_metrics/{metricId}    — NormalizedMetric
+ *   users/{firebaseUid}/throne_sync/state            — per-user sync state
+ *
+ * Admin collections:
+ *   throneSync/{studyId}         — study-level sync cursor (Cloud Function use only)
+ *   throneUserMap/{throneUserId} — Throne userId → Firebase UID reverse lookup
+ *     (maintained automatically by the syncThroneUserMap Cloud Function trigger)
  */
 
 import * as admin from "firebase-admin";
@@ -194,33 +200,106 @@ function normalizeSessions(
 
 // ─── Firestore Writer ────────────────────────────────────────────────────────
 
-const BATCH_LIMIT = 400; // Firestore limit is 500; leave headroom
+const BATCH_LIMIT = 400;
 
 async function writeToFirestore(
   db: admin.firestore.Firestore,
   sessions: NormalizedSession[],
   metrics: NormalizedMetric[],
 ): Promise<void> {
-  // Write sessions in batches
-  for (let i = 0; i < sessions.length; i += BATCH_LIMIT) {
-    const batch = db.batch();
-    const chunk = sessions.slice(i, i + BATCH_LIMIT);
-    for (const s of chunk) {
-      batch.set(db.collection("sessions").doc(s.id), s, {merge: true});
-    }
-    await batch.commit();
-    logger.info(`Wrote sessions batch ${i}-${i + chunk.length}`);
+  // Group sessions by Throne userId
+  const sessionsByThroneUser = new Map<string, NormalizedSession[]>();
+  for (const s of sessions) {
+    const arr = sessionsByThroneUser.get(s.userId) ?? [];
+    arr.push(s);
+    sessionsByThroneUser.set(s.userId, arr);
   }
 
-  // Write metrics in batches
-  for (let i = 0; i < metrics.length; i += BATCH_LIMIT) {
-    const batch = db.batch();
-    const chunk = metrics.slice(i, i + BATCH_LIMIT);
-    for (const m of chunk) {
-      batch.set(db.collection("metrics").doc(m.id), m, {merge: true});
+  // Build sessionId → throneUserId index for routing metrics to the right user
+  const sessionThroneUser = new Map<string, string>();
+  for (const s of sessions) {
+    sessionThroneUser.set(s.id, s.userId);
+  }
+
+  // Group metrics by Throne userId
+  const metricsByThroneUser = new Map<string, NormalizedMetric[]>();
+  for (const m of metrics) {
+    const throneUserId = sessionThroneUser.get(m.sessionId);
+    if (!throneUserId) continue; // orphaned metric — skip
+    const arr = metricsByThroneUser.get(throneUserId) ?? [];
+    arr.push(m);
+    metricsByThroneUser.set(throneUserId, arr);
+  }
+
+  // Build throneUserId → firebaseUid map by querying users with throneUserId set.
+  // This is self-contained and does not rely on the throneUserMap collection or
+  // the syncThroneUserMap trigger — any user who has saved their Throne User ID
+  // via the app (users/{uid}.throneUserId) is automatically included.
+  const usersSnap = await db.collection("users")
+    .where("throneUserId", "!=", null)
+    .get();
+  const throneToFirebase = new Map<string, string>();
+  for (const doc of usersSnap.docs) {
+    const tid = doc.data().throneUserId as string | undefined;
+    if (tid) throneToFirebase.set(tid, doc.id);
+  }
+  logger.info("Throne→Firebase mappings found: " + throneToFirebase.size);
+
+  // For each Throne userId, look up the Firebase UID and write to user-scoped paths
+  for (const [throneUserId, userSessions] of sessionsByThroneUser) {
+    const firebaseUid = throneToFirebase.get(throneUserId);
+
+    if (!firebaseUid) {
+      logger.warn(
+        "No users/{uid}.throneUserId match for throneUserId=" + throneUserId +
+        " — skipping " + userSessions.length + " session(s)." +
+        " Have the participant enter their Throne User ID in the app.",
+      );
+      continue;
     }
-    await batch.commit();
-    logger.info(`Wrote metrics batch ${i}-${i + chunk.length}`);
+
+    const userMetrics = metricsByThroneUser.get(throneUserId) ?? [];
+
+    // Write sessions in batches
+    for (let i = 0; i < userSessions.length; i += BATCH_LIMIT) {
+      const batch = db.batch();
+      for (const s of userSessions.slice(i, i + BATCH_LIMIT)) {
+        batch.set(
+          db.collection(`users/${firebaseUid}/throne_sessions`).doc(s.id),
+          s,
+          {merge: true},
+        );
+      }
+      await batch.commit();
+      logger.info(`Wrote sessions batch for uid=${firebaseUid}`);
+    }
+
+    // Write metrics in batches
+    for (let i = 0; i < userMetrics.length; i += BATCH_LIMIT) {
+      const batch = db.batch();
+      for (const m of userMetrics.slice(i, i + BATCH_LIMIT)) {
+        batch.set(
+          db.collection(`users/${firebaseUid}/throne_metrics`).doc(m.id),
+          m,
+          {merge: true},
+        );
+      }
+      await batch.commit();
+      logger.info(`Wrote metrics batch for uid=${firebaseUid}`);
+    }
+
+    // Write per-user sync state
+    await db.doc(`users/${firebaseUid}/throne_sync/state`).set({
+      lastRunAt: new Date().toISOString(),
+      lastStatus: "success",
+      sessionCount: userSessions.length,
+      metricCount: userMetrics.length,
+    }, {merge: true});
+
+    logger.info(
+      `Ingestion complete for uid=${firebaseUid}: ` +
+      `${userSessions.length} sessions, ${userMetrics.length} metrics`,
+    );
   }
 }
 
@@ -233,7 +312,7 @@ export async function runThroneIngestion(
   const db = admin.firestore();
   const studyId = config.studyId;
 
-  // Determine time window: check last sync state or default to last 7 days
+  // Determine time window from study-level sync cursor
   const syncRef = db.collection("throneSync").doc(studyId);
   const syncDoc = await syncRef.get();
 
@@ -242,17 +321,14 @@ export async function runThroneIngestion(
   const ltTs = now.toISOString();
 
   if (opts?.fullSync) {
-    // Full sync: go back 1 year to capture all historical data
     const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
     gtTs = oneYearAgo.toISOString();
     logger.info(`Full sync requested, fetching from ${gtTs}`);
   } else if (syncDoc.exists) {
     const data = syncDoc.data() as SyncState;
-    // Use last ltTs as the new gtTs for incremental sync
     gtTs = data.lastLtTs;
     logger.info(`Incremental sync from ${gtTs}`);
   } else {
-    // First run: default to last 7 days
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     gtTs = sevenDaysAgo.toISOString();
     logger.info(`Initial sync from ${gtTs}`);
@@ -270,7 +346,6 @@ export async function runThroneIngestion(
     hasMore = data.hasMore;
     page++;
 
-    // Safety: cap at 100 pages
     if (page > 100) {
       logger.warn("Exceeded 100 pages, stopping pagination");
       break;
@@ -281,12 +356,12 @@ export async function runThroneIngestion(
   const {sessions, metrics} = normalizeSessions(allPages, studyId);
   logger.info(`Normalized: ${sessions.length} sessions, ${metrics.length} metrics`);
 
-  // Write to Firestore
+  // Write to user-scoped paths
   if (sessions.length > 0 || metrics.length > 0) {
     await writeToFirestore(db, sessions, metrics);
   }
 
-  // Update sync state
+  // Advance study-level sync cursor
   const syncState: SyncState = {
     lastRunAt: now.toISOString(),
     lastLtTs: ltTs,

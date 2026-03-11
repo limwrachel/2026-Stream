@@ -20,14 +20,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, StanfordColors, Spacing } from '@/constants/theme';
 import { OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
-import { OnboardingProgressBar, ContinueButton, DevToolBar } from '@/components/onboarding';
+import { OnboardingProgressBar, ContinueButton } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 // Lazy-load so the screen still renders even if the package isn't available
 let DateTimePicker: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  DateTimePicker = require('react-native-ui-datepicker').DateTimePicker;
+  DateTimePicker = require('react-native-ui-datepicker').default;
 } catch {
   // noop – graceful degradation below
 }
@@ -79,14 +79,23 @@ export default function OnboardingChatScreen() {
   };
 
   const handleContinue = async () => {
+    const dateStr = surgerySched === 'yes'
+      ? surgeryDate.toISOString().split('T')[0]
+      : undefined;
+
     await OnboardingService.updateData({
       eligibility: {
         hasIPhone: true,
         hasBPHDiagnosis: bphDiagnosis === 'yes',
         consideringSurgery: surgerySched === 'yes',
         isEligible: canContinue,
+        surgeryDate: dateStr,
       },
     });
+
+    // Surgery date is persisted locally in OnboardingService (AsyncStorage).
+    // It will be flushed to Firestore after the user logs in (account.tsx).
+
     await OnboardingService.goToStep(OnboardingStep.CONSENT);
     router.push('/(onboarding)/consent' as Href);
   };
@@ -197,18 +206,35 @@ export default function OnboardingChatScreen() {
                   <DateTimePicker
                     mode="single"
                     date={surgeryDate}
-                    onChange={({ date }: { date: Date }) => {
+                    onChange={({ date }: { date: any }) => {
                       if (date) {
-                        setSurgeryDate(date);
+                        // react-native-ui-datepicker returns a Dayjs object,
+                        // not a native Date. Convert via valueOf() (epoch ms).
+                        const nativeDate =
+                          date instanceof Date
+                            ? date
+                            : new Date(typeof date.valueOf === 'function' ? date.valueOf() : date);
+                        setSurgeryDate(nativeDate);
                         setShowDatePicker(false);
                       }
                     }}
-                    selectedItemColor={StanfordColors.cardinal}
-                    headerButtonColor={StanfordColors.cardinal}
-                    calendarTextStyle={{ color: colors.text }}
-                    headerTextStyle={{ color: colors.text }}
-                    weekDaysTextStyle={{ color: colors.icon }}
-                    todayTextStyle={{ color: StanfordColors.cardinal }}
+                    styles={{
+                      // Day grid
+                      day_label:            { color: colors.text },
+                      outside_label:        { color: colors.icon },
+                      disabled_label:       { color: colors.icon, opacity: 0.35 },
+                      // Weekday header row
+                      weekday_label:        { color: colors.icon },
+                      // Month / year selectors in header
+                      month_selector_label: { color: colors.text, fontWeight: '600' },
+                      year_selector_label:  { color: colors.text, fontWeight: '600' },
+                      // Today highlight (unfilled ring)
+                      today:                { borderWidth: 1, borderColor: StanfordColors.cardinal, borderRadius: 999 },
+                      today_label:          { color: StanfordColors.cardinal },
+                      // Selected day — filled cardinal circle
+                      selected:             { backgroundColor: StanfordColors.cardinal, borderRadius: 999 },
+                      selected_label:       { color: '#FFFFFF', fontWeight: '600' },
+                    }}
                   />
                 ) : (
                   <Text style={[styles.pickerFallback, { color: colors.icon }]}>
@@ -230,7 +256,6 @@ export default function OnboardingChatScreen() {
         />
       </View>
 
-      <DevToolBar currentStep={OnboardingStep.CHAT} onContinue={handleContinue} />
     </SafeAreaView>
   );
 }

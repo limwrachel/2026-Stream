@@ -24,7 +24,7 @@ import {
   calculateIPSSScore,
   getIPSSSeverityDescription,
 } from '@/lib/questionnaires/ipss-questionnaire';
-import { OnboardingProgressBar, ContinueButton, DevToolBar } from '@/components/onboarding';
+import { OnboardingProgressBar, ContinueButton } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function BaselineSurveyScreen() {
@@ -197,7 +197,6 @@ export default function BaselineSurveyScreen() {
           />
         </View>
 
-        <DevToolBar currentStep={OnboardingStep.BASELINE_SURVEY} onContinue={handleDevContinue} />
       </SafeAreaView>
     );
   }
@@ -226,7 +225,6 @@ export default function BaselineSurveyScreen() {
         />
       </View>
 
-      <DevToolBar currentStep={OnboardingStep.BASELINE_SURVEY} onContinue={handleDevContinue} />
     </SafeAreaView>
   );
 }

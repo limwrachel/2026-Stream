@@ -34,6 +34,9 @@ export const STORAGE_KEYS = {
   // Notification tracking (last time we fired each reminder, to avoid spam)
   LAST_NOTIFICATION_HEALTHKIT: '@homeflow_last_notification_healthkit',
   LAST_NOTIFICATION_THRONE: '@homeflow_last_notification_throne',
+
+  // One-time surgery complete modal (shown first time surgery date has passed)
+  SURGERY_MODAL_SHOWN: '@homeflow_surgery_modal_shown',
 } as const;
 
 // Legacy keys for backwards compatibility
@@ -49,7 +52,6 @@ export enum OnboardingStep {
   CONSENT = 'consent',
   ACCOUNT = 'account',
   PERMISSIONS = 'permissions',
-  HEALTH_DATA_TEST = 'health_data_test', // Dev-only: test HealthKit + Clinical Records queries
   MEDICAL_HISTORY = 'medical_history', // Medical history collection (chatbot)
   BASELINE_SURVEY = 'baseline_survey',
   COMPLETE = 'complete',
@@ -64,7 +66,6 @@ export const ONBOARDING_FLOW: OnboardingStep[] = [
   OnboardingStep.CONSENT,
   OnboardingStep.ACCOUNT,
   OnboardingStep.PERMISSIONS,
-  OnboardingStep.HEALTH_DATA_TEST,
   OnboardingStep.MEDICAL_HISTORY,
   OnboardingStep.BASELINE_SURVEY,
   OnboardingStep.COMPLETE,
@@ -79,6 +80,12 @@ export const SPEZIVIBE_TASK_ID_SYSTEM = 'http://spezivibe.com/fhir/identifier/ta
  * Consent document version - increment when consent text changes
  */
 export const CONSENT_VERSION = '1.0.0';
+
+/**
+ * Dev-only Firebase UID for testing Firestore queries without Apple Sign-In.
+ * Used as uid fallback when DEV_BYPASS_AUTH is active and no user is signed in.
+ */
+export const DEV_FIREBASE_UID = 'CUziuLyPtDNO2IvSbsifXPKrNEk2';
 
 /**
  * Study information

@@ -103,20 +103,26 @@ class StubThroneService implements IThroneService {
   }
 
   /**
-   * Request permission to access Throne data
-   * STUB: Always returns 'granted' after a delay to simulate API call
+   * Mark Throne as connected after the user has supplied their Throne User ID.
+   *
+   * SHORT-TERM: The caller (permissions screen) collects the Throne User ID via
+   * a text input and writes it to Firestore before calling this method. This
+   * method simply records the granted state locally.
+   *
+   * LONG-TERM (uncomment when real Throne SDK is available):
+   * Replace the body below with the OAuth flow. The SDK will return a throneUserId
+   * which the caller can then pass to saveThroneUserId() before calling this.
+   *
+   * // const throneResult = await ThroneSDK.authorize({ studyId: THRONE_STUDY_ID });
+   * // await saveThroneUserId(firebaseUid, throneResult.userId);
+   * // this.permissionStatus = 'granted';
+   * // await this.persistStatus();
+   * // return this.permissionStatus;
    */
   async requestPermission(): Promise<ThronePermissionStatus> {
     await this.initialize();
-
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // In stub mode, we'll simulate successful permission
-    // In production, this would open Throne's OAuth flow
     this.permissionStatus = 'granted';
     await this.persistStatus();
-
     return this.permissionStatus;
   }
 

@@ -18,8 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, StanfordColors, Spacing } from '@/constants/theme';
 import { STUDY_INFO, OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
-import { ContinueButton, DevToolBar } from '@/components/onboarding';
+import { ContinueButton } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -135,7 +136,6 @@ export default function WelcomeScreen() {
         <ContinueButton title="Get Started" onPress={handleContinue} />
       </Animated.View>
 
-      <DevToolBar currentStep={OnboardingStep.WELCOME} onContinue={handleContinue} />
     </SafeAreaView>
   );
 }
@@ -196,13 +196,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: FontSize.display,
+    fontWeight: FontWeight.bold,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: FontSize.subhead,
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   description: {
-    fontSize: 17,
+    fontSize: FontSize.headline,
     lineHeight: 24,
     textAlign: 'center',
     marginBottom: Spacing.xl,
@@ -234,12 +234,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.semibold,
     marginBottom: 2,
   },
   featureDescription: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
   },
   footer: {
     paddingHorizontal: Spacing.screenHorizontal,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
     textAlign: 'center',
     lineHeight: 20,
   },

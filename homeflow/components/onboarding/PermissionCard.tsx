@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, StanfordColors, Spacing } from '@/constants/theme';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 export type PermissionStatus = 'not_determined' | 'granted' | 'denied' | 'skipped' | 'loading';
 
@@ -198,12 +199,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
     marginBottom: 4,
   },
   description: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
     lineHeight: 20,
     marginBottom: Spacing.md,
   },
@@ -222,14 +223,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.semibold,
   },
   skipButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
   skipText: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
   },
 });

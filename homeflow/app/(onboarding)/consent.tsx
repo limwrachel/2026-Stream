@@ -36,11 +36,11 @@ import {
   OnboardingProgressBar,
   ConsentAgreement,
   ContinueButton,
-  DevToolBar,
 } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { SignaturePad, type SignaturePadRef } from '@/components/ui/SignaturePad';
 import { useAuth } from '@/hooks/use-auth';
+import { uploadConsentPdf } from '@/src/services/consentPdfSync';
 
 function buildConsentText(): string {
   const header = [
@@ -95,6 +95,7 @@ export default function ConsentScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailModalVisible, setEmailModalVisible] = useState(false);
   const [emailAddress, setEmailAddress] = useState(user?.email ?? '');
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const signaturePadRef = useRef<SignaturePadRef>(null);
@@ -112,16 +113,29 @@ export default function ConsentScreen() {
     setIsSubmitting(true);
 
     try {
-      // Record consent — store typed name or a drawn-signature marker
+      const participantName =
+        signatureMode === 'type' ? typedSignature.trim() : null;
       const signatureValue =
         signatureMode === 'type'
           ? typedSignature.trim()
           : '[Drawn signature provided]';
+
+      // Record consent locally (source of truth for gate-keeping)
       await ConsentService.recordConsent(signatureValue);
 
-      // Update onboarding
-      await OnboardingService.goToStep(OnboardingStep.ACCOUNT);
+      // Upload signed PDF to Firebase Storage + write Firestore metadata.
+      // Non-fatal: failure should not block the participant from proceeding.
+      const pdfResult = await uploadConsentPdf({
+        signatureType: signatureMode === 'type' ? 'typed' : 'drawn',
+        participantName,
+        signatureValue,
+      });
+      if (!pdfResult.ok) {
+        console.warn('[Consent] PDF upload failed (non-fatal):', pdfResult.error);
+      }
 
+      // Advance onboarding
+      await OnboardingService.goToStep(OnboardingStep.ACCOUNT);
       router.push('/(onboarding)/account' as Href);
     } finally {
       setIsSubmitting(false);
@@ -224,6 +238,7 @@ export default function ConsentScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={scrollEnabled}
       >
         {/* Flat consent document */}
         {CONSENT_DOCUMENT.sections.map((section, index) => (
@@ -330,6 +345,7 @@ export default function ConsentScreen() {
               <SignaturePad
                 ref={signaturePadRef}
                 onChanged={setHasDrawnSignature}
+                onDrawingActiveChange={active => setScrollEnabled(!active)}
                 strokeColor={colorScheme === 'dark' ? '#FFFFFF' : '#1A1A1A'}
                 backgroundColor={colorScheme === 'dark' ? '#2C2C2E' : '#F9F9F9'}
                 height={160}
@@ -406,8 +422,6 @@ export default function ConsentScreen() {
           loading={isSubmitting}
         />
       </View>
-
-      <DevToolBar currentStep={OnboardingStep.CONSENT} onContinue={handleDevContinue} />
 
       {/* Email address prompt modal */}
       <Modal

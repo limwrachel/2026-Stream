@@ -20,7 +20,7 @@ import { Colors, StanfordColors, Spacing } from '@/constants/theme';
 import { STUDY_INFO, OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { notifyOnboardingComplete } from '@/hooks/use-onboarding-status';
-import { ContinueButton, DevToolBar } from '@/components/onboarding';
+import { ContinueButton } from '@/components/onboarding';
 import { devSkipAuth } from '@/lib/dev-flags';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
@@ -145,6 +145,7 @@ export default function CompleteScreen() {
           style={{
             opacity: contentFade,
             transform: [{ translateY: contentSlide }],
+            alignSelf: 'stretch',
           }}
         >
           <Text style={[styles.title, { color: colors.text }]}>
@@ -207,7 +208,6 @@ export default function CompleteScreen() {
         </Animated.View>
       )}
 
-      <DevToolBar currentStep={OnboardingStep.COMPLETE} onContinue={handleDevContinue} />
     </SafeAreaView>
   );
 }

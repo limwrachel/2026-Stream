@@ -27,10 +27,11 @@ import { Colors, StanfordColors, Spacing } from '@/constants/theme';
 import { OnboardingStep } from '@/lib/constants';
 import { OnboardingService } from '@/lib/services/onboarding-service';
 import { useAuth } from '@/hooks/use-auth';
+import { saveSurgeryDate } from '@/src/services/throneFirestore';
+import { getAuth } from '@/src/services/firestore';
 import {
   OnboardingProgressBar,
   ContinueButton,
-  DevToolBar,
 } from '@/components/onboarding';
 
 export default function AccountScreen() {
@@ -54,6 +55,18 @@ export default function AccountScreen() {
   }, [isAuthenticated]);
 
   const handleAdvance = async () => {
+    // Flush any surgery date collected before login to Firestore now that we have a UID.
+    const uid = getAuth().currentUser?.uid;
+    if (uid) {
+      const data = await OnboardingService.getData();
+      const surgeryDate = data.eligibility?.surgeryDate;
+      if (surgeryDate) {
+        saveSurgeryDate(uid, surgeryDate).catch((err) => {
+          console.warn('[Account] Failed to flush surgery date to Firestore:', err);
+        });
+      }
+    }
+
     await OnboardingService.goToStep(OnboardingStep.PERMISSIONS);
     router.push('/(onboarding)/permissions' as Href);
   };
@@ -259,10 +272,6 @@ export default function AccountScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <DevToolBar
-        currentStep={OnboardingStep.ACCOUNT}
-        onContinue={handleDevSkip}
-      />
     </SafeAreaView>
   );
 }

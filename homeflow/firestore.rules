@@ -3,17 +3,104 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 3, 14);
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // True only for authenticated users accessing their own data.
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── User profiles ─────────────────────────────────────────────────────────
+
+    match /users/{uid} {
+      // Owner can read their own profile document.
+      allow read: if isOwner(uid);
+
+      // Only allow writing the Throne device-link fields to the root profile
+      // document. All other app data lives in named subcollections below.
+      // This prevents a client from writing arbitrary fields to the root doc
+      // (e.g. spoofing another participant's throneUserId).
+      allow write: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['throneUserId', 'throneUserIdSetAt']);
+
+      // ── Throne data (written by Cloud Function, read by owner) ──────────────
+
+      match /throne_sessions/{sessionId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // Cloud Function (Admin SDK) only
+      }
+
+      match /throne_metrics/{metricId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // Cloud Function (Admin SDK) only
+      }
+
+      match /throne_sync/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false; // Cloud Function (Admin SDK) only
+      }
+
+      // ── HealthKit data (written by device, read by owner) ───────────────────
+
+      match /hk_heartRate/{sampleId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /hk_stepCount/{sampleId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /hk_sleepAnalysis/{sampleId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /hk_heartRateVariabilitySDNN/{sampleId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /hk_sync/{metricType} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // ── Clinical data ────────────────────────────────────────────────────────
+
+      match /clinical_notes/{noteId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /medical_history_prefill/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /medical_history/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // ── Study metadata ───────────────────────────────────────────────────────
+
+      match /surgery_date/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Placeholder — logic to be added later
+      match /consent_response/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Placeholder — logic to be added later
+      match /study_timeline/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ── Admin-only collections (Cloud Function / Admin SDK bypass rules) ───────
+
+    match /throneSync/{studyId} {
+      allow read, write: if false;
+    }
+
+    match /throneUserMap/{throneUserId} {
+      allow read, write: if false;
     }
   }
 }

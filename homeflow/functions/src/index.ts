@@ -1,11 +1,12 @@
 /**
  * StreamSync Cloud Functions
  *
- * - throneIngestDaily: Scheduled daily at 3 AM PT, syncs Throne data to Firestore
- * - syncThroneNow: HTTP trigger for manual/dev sync (requires x-admin-token header)
+ * - throneIngestDaily:   Scheduled daily at 3 AM PT, syncs Throne data to Firestore
+ * - syncThroneNow:       HTTP trigger for manual/dev sync (requires x-admin-token header)
+ * - syncThroneUserMap:   Firestore trigger — keeps throneUserMap in sync when a user's
+ *                        throneUserId field is set or changed by the study coordinator
  *
- * Config is read from functions/.env (deployed with the function bundle).
- * Required env vars:
+ * Required env vars (functions/.env):
  *   THRONE_API_KEY, THRONE_BASE_URL, THRONE_STUDY_ID, ADMIN_TOKEN
  * Optional:
  *   THRONE_TIMEZONE (defaults to America/Los_Angeles)
@@ -15,16 +16,15 @@ import {setGlobalOptions} from "firebase-functions/v2";
 import {onRequest} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
+import * as crypto from "crypto";
 import * as logger from "firebase-functions/logger";
 import {runThroneIngestion, ThroneConfig} from "./throneIngestion";
 
-// Initialize Firebase Admin
 admin.initializeApp();
 
-// setGlobalOptions must be called before any function definitions
 setGlobalOptions({maxInstances: 10});
 
-// ─── Config from .env ────────────────────────────────────────────────────────
+// ─── Config ──────────────────────────────────────────────────────────────────
 
 function requireEnv(name: string): string {
   const val = process.env[name];
@@ -45,7 +45,7 @@ function getThroneConfig(): ThroneConfig {
 
 export const throneIngestDaily = onSchedule(
   {
-    schedule: "0 3 * * *", // 3:00 AM every day
+    schedule: "0 3 * * *",
     timeZone: "America/Los_Angeles",
   },
   async () => {
@@ -59,7 +59,6 @@ export const throneIngestDaily = onSchedule(
     } catch (err) {
       logger.error("Throne ingestion failed", err);
 
-      // Record error in sync state
       const db = admin.firestore();
       await db.collection("throneSync").doc(studyId).set({
         lastRunAt: new Date().toISOString(),
@@ -72,19 +71,22 @@ export const throneIngestDaily = onSchedule(
   },
 );
 
-// ─── Manual HTTP Trigger (dev/admin) ─────────────────────────────────────────
+// ─── Manual HTTP Trigger ─────────────────────────────────────────────────────
 
 export const syncThroneNow = onRequest(async (req, res) => {
-  // Only accept POST
   if (req.method !== "POST") {
     res.status(405).send("Method not allowed");
     return;
   }
 
-  // Verify admin token
-  const expected = process.env.ADMIN_TOKEN;
-  const token = req.headers["x-admin-token"];
-  if (!expected || !token || token !== expected) {
+  const expected = process.env.ADMIN_TOKEN ?? "";
+  const token = typeof req.headers["x-admin-token"] === "string"
+    ? req.headers["x-admin-token"]
+    : "";
+  const validToken = expected.length > 0 &&
+    token.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  if (!validToken) {
     res.status(401).send("Unauthorized: invalid or missing x-admin-token");
     return;
   }
@@ -95,11 +97,7 @@ export const syncThroneNow = onRequest(async (req, res) => {
     const config = getThroneConfig();
     const fullSync = req.body?.fullSync === true;
     const result = await runThroneIngestion(config, {fullSync});
-    res.status(200).json({
-      status: "ok",
-      fullSync,
-      ...result,
-    });
+    res.status(200).json({status: "ok", fullSync, ...result});
   } catch (err) {
     logger.error("Manual Throne sync failed", err);
     res.status(500).json({

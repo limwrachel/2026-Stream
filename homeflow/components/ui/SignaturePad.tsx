@@ -24,6 +24,8 @@ export interface SignaturePadRef {
 
 interface SignaturePadProps {
   onChanged: (hasSignature: boolean) => void;
+  /** Called with `true` when a stroke begins, `false` when it ends. Use to disable parent ScrollView scrolling while drawing. */
+  onDrawingActiveChange?: (active: boolean) => void;
   strokeColor?: string;
   backgroundColor?: string;
   height?: number;
@@ -33,6 +35,7 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
   function SignaturePad(
     {
       onChanged,
+      onDrawingActiveChange,
       strokeColor = '#1A1A1A',
       backgroundColor = '#F9F9F9',
       height = 160,
@@ -40,6 +43,10 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
     ref,
   ) {
     const [strokes, setStrokes] = useState<Stroke[]>([]);
+
+    // Keep a ref so PanResponder callbacks (created once) always call the latest prop
+    const onDrawingActiveChangeRef = useRef(onDrawingActiveChange);
+    onDrawingActiveChangeRef.current = onDrawingActiveChange;
 
     useImperativeHandle(ref, () => ({
       clear: () => {
@@ -51,9 +58,13 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
 
     const panResponder = useRef(
       PanResponder.create({
+        // Capture touches before the parent ScrollView can intercept them
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
         onPanResponderGrant: evt => {
+          onDrawingActiveChangeRef.current?.(true);
           const { locationX, locationY } = evt.nativeEvent;
           setStrokes(prev => [...prev, [{ x: locationX, y: locationY }]]);
           onChanged(true);
@@ -67,6 +78,12 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
             next[next.length - 1] = [...last, { x: locationX, y: locationY }];
             return next;
           });
+        },
+        onPanResponderRelease: () => {
+          onDrawingActiveChangeRef.current?.(false);
+        },
+        onPanResponderTerminate: () => {
+          onDrawingActiveChangeRef.current?.(false);
         },
       }),
     ).current;

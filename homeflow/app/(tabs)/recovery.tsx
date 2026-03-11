@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 import { useSurgeryDate } from '@/hooks/use-surgery-date';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import {
@@ -119,15 +120,15 @@ const tlStyles = StyleSheet.create({
   card:           { borderRadius: 14, padding: 16, marginBottom: 16 },
   statusRow:      { flexDirection: 'row', justifyContent: 'space-between',
                     alignItems: 'baseline', marginBottom: 12 },
-  statusLabel:    { fontSize: 15, fontWeight: '600' },
-  statusSub:      { fontSize: 12 },
+  statusLabel:    { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold },
+  statusSub:      { fontSize: FontSize.caption },
   track:          { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 24 },
   fill:           { height: '100%', borderRadius: 3 },
   milestonesRow:  { position: 'relative', height: 32 },
   milestone:      { position: 'absolute', alignItems: 'center',
                     transform: [{ translateX: -20 }] },
   dot:            { width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, marginBottom: 4 },
-  milestoneLabel: { fontSize: 10, fontWeight: '500', textAlign: 'center', width: 48 },
+  milestoneLabel: { fontSize: FontSize.micro, fontWeight: FontWeight.medium, textAlign: 'center', width: 48 },
 });
 
 // ─── Section content components ───────────────────────────────────────────────
@@ -358,10 +359,10 @@ function ReviewedToggle({
 
 const rvStyles = StyleSheet.create({
   btn:      { paddingTop: 10, alignItems: 'center' },
-  btnText:  { fontSize: 12, fontWeight: '500' },
+  btnText:  { fontSize: FontSize.caption, fontWeight: FontWeight.medium },
   done:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
               paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
-  doneText: { fontSize: 12, fontWeight: '600' },
+  doneText: { fontSize: FontSize.caption, fontWeight: FontWeight.semibold },
 });
 
 // ─── Main Tab Screen ──────────────────────────────────────────────────────────
@@ -536,7 +537,7 @@ export default function RecoveryScreen() {
 
 const sc = StyleSheet.create({
   groupLabel: {
-    fontSize: 11, fontWeight: '600', textTransform: 'uppercase',
+    fontSize: FontSize.micro, fontWeight: FontWeight.semibold, textTransform: 'uppercase',
     letterSpacing: 0.4, marginTop: 4, marginBottom: 6,
   },
   divider: {
@@ -546,7 +547,7 @@ const sc = StyleSheet.create({
     flexDirection: 'row', gap: 8, padding: 12, borderRadius: 10,
     borderWidth: 1, marginBottom: 8, alignItems: 'flex-start',
   },
-  infoText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  infoText: { flex: 1, fontSize: FontSize.footnote, lineHeight: 18 },
   checkRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12,
     padding: 12, borderRadius: 10, borderWidth: 1,
@@ -555,12 +556,12 @@ const sc = StyleSheet.create({
     width: 20, height: 20, borderRadius: 5, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
-  checkLabel: { fontSize: 13, fontWeight: '500' },
+  checkLabel: { fontSize: FontSize.footnote, fontWeight: FontWeight.medium },
   callButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 13, borderRadius: 12, marginTop: 4,
   },
-  callButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  callButtonText: { color: '#FFFFFF', fontSize: FontSize.subhead, fontWeight: FontWeight.semibold },
 });
 
 // ─── Screen styles ────────────────────────────────────────────────────────────
@@ -569,19 +570,19 @@ const styles = StyleSheet.create({
   container:    { flex: 1 },
   scrollContent:{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 0 },
 
-  screenTitle:  { fontSize: 34, fontWeight: '700', paddingTop: 8, paddingBottom: 2 },
+  screenTitle:  { fontSize: FontSize.display, fontWeight: FontWeight.bold, paddingTop: 8, paddingBottom: 2 },
   headerBlock:  { marginBottom: 20 },
-  subtitle:     { fontSize: 15, lineHeight: 22, marginBottom: 2 },
-  sourceNote:   { fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.4 },
+  subtitle:     { fontSize: FontSize.subhead, lineHeight: 22, marginBottom: 2 },
+  sourceNote:   { fontSize: FontSize.micro, fontWeight: FontWeight.medium, textTransform: 'uppercase', letterSpacing: 0.4 },
 
   footerCard:     { borderRadius: 14, padding: 16, marginTop: 6, marginBottom: 12 },
-  footerTitle:    { fontSize: 15, fontWeight: '600', marginBottom: 6 },
-  footerBody:     { fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  footerTitle:    { fontSize: FontSize.subhead, fontWeight: FontWeight.semibold, marginBottom: 6 },
+  footerBody:     { fontSize: FontSize.footnote, lineHeight: 19, marginBottom: 14 },
   footerButtons:  { flexDirection: 'row', gap: 10 },
   footerBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center',
                     justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
   footerBtnOutline: { backgroundColor: 'transparent', borderWidth: 1 },
-  footerBtnText:  { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  footerBtnText:  { color: '#FFFFFF', fontSize: FontSize.footnote, fontWeight: FontWeight.semibold },
 
-  disclaimer:   { fontSize: 11, lineHeight: 16, textAlign: 'center', paddingHorizontal: 8, marginBottom: 8 },
+  disclaimer:   { fontSize: FontSize.micro, lineHeight: 16, textAlign: 'center', paddingHorizontal: 8, marginBottom: 8 },
 });

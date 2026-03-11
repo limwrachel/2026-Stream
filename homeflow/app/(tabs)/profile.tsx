@@ -14,13 +14,13 @@ import { useRouter, Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/hooks/use-auth';
-import { triggerTestNotification, requestNotificationPermissions } from '@/lib/services/notification-service';
 import {
   CONSENT_PROFILE_SUMMARY,
   DATA_PERMISSIONS_SUMMARY,
   STUDY_COORDINATOR,
 } from '@/lib/consent/consent-document';
 import { useAppTheme, type AppearanceMode } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 const APPEARANCE_OPTIONS: { value: AppearanceMode; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -44,6 +44,7 @@ export default function ProfileScreen() {
         onPress: async () => {
           try {
             await signOut();
+            router.replace('/(auth)/login' as Href);
           } catch (error: any) {
             Alert.alert('Error', error?.message || 'Failed to sign out.');
           }
@@ -108,7 +109,7 @@ export default function ProfileScreen() {
                     style={[
                       styles.segmentText,
                       { color: c.textSecondary },
-                      isSelected && { color: c.textPrimary, fontWeight: '600' },
+                      isSelected && { color: c.textPrimary, fontWeight: FontWeight.semibold },
                     ]}
                   >
                     {opt.label}
@@ -207,82 +208,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Developer menu — visible in __DEV__ builds only */}
-        {__DEV__ && (
-          <View style={[styles.card, { backgroundColor: c.card }]}>
-            <View style={styles.cardHeader}>
-              <IconSymbol name={'hammer.fill' as any} size={17} color={c.semanticWarning} />
-              <Text style={[styles.cardLabel, { color: c.semanticWarning }]}>
-                Developer
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.rowButton}
-              onPress={() => router.push('/fhir-parser-test' as Href)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.rowLeft}>
-                <IconSymbol name={'doc.text.magnifyingglass' as any} size={18} color={c.accent} />
-                <Text style={[styles.rowLabel, { color: c.textPrimary }]}>
-                  FHIR Parser Test
-                </Text>
-              </View>
-              <IconSymbol name="chevron.right" size={14} color={c.textTertiary} />
-            </TouchableOpacity>
-
-            <View style={[styles.rowDivider, { backgroundColor: c.separator, marginVertical: 4 }]} />
-
-            <TouchableOpacity
-              style={[styles.devButton, { backgroundColor: c.secondaryFill }]}
-              onPress={async () => {
-                try {
-                  const granted = await requestNotificationPermissions();
-                  if (!granted) {
-                    Alert.alert('Permission Denied', 'Enable notifications in Settings → HomeFlow → Notifications.');
-                    return;
-                  }
-                  await triggerTestNotification('healthkit');
-                  Alert.alert('Sent', 'HealthKit reminder notification fired. Background the app to see the banner.');
-                } catch (e: any) {
-                  Alert.alert('Error', e?.message ?? 'Failed to send notification.');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="heart.fill" size={16} color={c.semanticWarning} />
-              <Text style={[styles.devButtonText, { color: c.semanticWarning }]}>
-                Test HealthKit Reminder
-              </Text>
-            </TouchableOpacity>
-
-            <View style={[styles.rowDivider, { backgroundColor: c.separator, marginVertical: 4 }]} />
-
-            <TouchableOpacity
-              style={[styles.devButton, { backgroundColor: c.secondaryFill }]}
-              onPress={async () => {
-                try {
-                  const granted = await requestNotificationPermissions();
-                  if (!granted) {
-                    Alert.alert('Permission Denied', 'Enable notifications in Settings → HomeFlow → Notifications.');
-                    return;
-                  }
-                  await triggerTestNotification('throne');
-                  Alert.alert('Sent', 'Throne reminder notification fired. Background the app to see the banner.');
-                } catch (e: any) {
-                  Alert.alert('Error', e?.message ?? 'Failed to send notification.');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <IconSymbol name="drop.fill" size={16} color={c.semanticWarning} />
-              <Text style={[styles.devButtonText, { color: c.semanticWarning }]}>
-                Test Throne Reminder
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Sign Out */}
         <TouchableOpacity
@@ -402,8 +327,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   screenTitle: {
-    fontSize: 34,
-    fontWeight: '700',
+    fontSize: FontSize.display,
+    fontWeight: FontWeight.bold,
     letterSpacing: 0.37,
     marginBottom: 20,
   },
@@ -421,22 +346,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.semibold,
     letterSpacing: 0.2,
   },
 
   // Account info
   accountName: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
     color: '#2C3E50',
   },
   accountNameDark: {
     color: '#D4D8E8',
   },
   accountEmail: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
     color: '#7A7F8E',
     marginTop: 2,
   },
@@ -444,7 +369,7 @@ const styles = StyleSheet.create({
     color: '#6B7394',
   },
   placeholderText: {
-    fontSize: 15,
+    fontSize: FontSize.subhead,
     lineHeight: 22,
     fontStyle: 'italic',
   },
@@ -469,22 +394,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segmentText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-
-  // Dev tools
-  devButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  devButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.medium,
   },
 
   // Sign out
@@ -498,8 +409,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   signOutText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.semibold,
     color: '#D64545',
   },
 
@@ -516,8 +427,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   rowLabel: {
-    fontSize: 17,
-    fontWeight: '400',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.regular,
   },
   rowDivider: {
     height: StyleSheet.hairlineWidth,
@@ -538,17 +449,17 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: FontSize.subhead,
     lineHeight: 22,
   },
 
   // Contact
   contactName: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
   },
   contactRole: {
-    fontSize: 13,
+    fontSize: FontSize.footnote,
     marginTop: 2,
     marginBottom: 14,
   },
@@ -564,7 +475,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   contactButtonText: {
-    fontSize: 15,
+    fontSize: FontSize.subhead,
   },
 
   // Modal
@@ -588,20 +499,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
     textAlign: 'center',
     marginBottom: 12,
   },
   modalBody: {
-    fontSize: 15,
+    fontSize: FontSize.subhead,
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 24,
   },
   modalSubhead: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.medium,
     marginBottom: 12,
     textAlign: 'left',
   },
@@ -612,8 +523,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   modalButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
     color: '#FFFFFF',
   },
 });

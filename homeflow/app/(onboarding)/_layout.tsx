@@ -68,18 +68,6 @@ export default function OnboardingLayout() {
         }}
       />
       <Stack.Screen
-        name="health-data-test"
-        options={{
-          animation: 'slide_from_right',
-        }}
-      />
-      <Stack.Screen
-        name="fhir-parser-test"
-        options={{
-          animation: 'slide_from_right',
-        }}
-      />
-      <Stack.Screen
         name="medical-history"
         options={{
           animation: 'slide_from_right',

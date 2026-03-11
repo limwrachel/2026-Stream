@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android') {
@@ -241,13 +242,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.semibold,
     letterSpacing: -0.1,
   },
   summary: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.regular,
   },
   badge: {
     paddingHorizontal: 8,
@@ -255,8 +256,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: FontSize.micro,
+    fontWeight: FontWeight.medium,
   },
   content: {
     paddingHorizontal: 16,
@@ -277,12 +278,12 @@ const bulletStyles = StyleSheet.create({
     paddingLeft: 16,
   },
   dot: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
     lineHeight: 20,
     width: 12,
   },
   text: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
     lineHeight: 20,
     flex: 1,
   },
@@ -304,11 +305,11 @@ const stepStyles = StyleSheet.create({
     marginTop: 1,
   },
   num: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.bold,
   },
   text: {
-    fontSize: 14,
+    fontSize: FontSize.footnote,
     lineHeight: 20,
     flex: 1,
   },
@@ -323,13 +324,13 @@ const pairStyles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.medium,
     flex: 1,
   },
   value: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.regular,
     flex: 2,
     textAlign: 'right',
   },

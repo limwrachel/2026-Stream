@@ -23,6 +23,7 @@ import { useConciergeChat } from '@/lib/chat/useConciergeChat';
 import type { QuickAction } from '@/lib/chat/useConciergeChat';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
 import { getClientLLMProvider } from '@/lib/config/llm';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 /**
  * TODO: Once Firebase backend is set up, move OpenAI calls to a Cloud
@@ -318,8 +319,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   yesNoText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: FontSize.subhead,
+    fontWeight: FontWeight.medium,
     lineHeight: 20,
   },
 
@@ -343,8 +344,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   chipText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.medium,
     lineHeight: 18,
   },
 
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   startOverText: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: FontSize.footnote,
+    fontWeight: FontWeight.regular,
   },
 });

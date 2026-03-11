@@ -15,6 +15,12 @@ import {
   Platform,
   Alert,
   Linking,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Pressable,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,20 +39,28 @@ import {
   PermissionCard,
   ContinueButton,
   PermissionStatus,
-  DevToolBar,
 } from '@/components/onboarding';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/lib/auth/auth-context';
+import { saveThroneUserId } from '@/src/services/throneFirestore';
 
 export default function PermissionsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
+  const { user } = useAuth();
 
   const [healthKitStatus, setHealthKitStatus] = useState<PermissionStatus>('not_determined');
   const [throneStatus, setThroneStatus] = useState<PermissionStatus>('not_determined');
   const [clinicalStatus, setClinicalStatus] = useState<PermissionStatus>('not_determined');
   const [clinicalAvailable, setClinicalAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Throne User ID modal state
+  const [throneModalVisible, setThroneModalVisible] = useState(false);
+  const [throneIdInput, setThroneIdInput] = useState('');
+  const [throneIdSaving, setThroneIdSaving] = useState(false);
 
   // HealthKit is required, Throne is optional
   const canContinue = healthKitStatus === 'granted' || Platform.OS !== 'ios';
@@ -119,15 +133,44 @@ export default function PermissionsScreen() {
     setClinicalStatus('skipped');
   }, []);
 
-  const handleThroneRequest = useCallback(async () => {
-    setThroneStatus('loading');
-    try {
-      const status = await ThroneService.requestPermission();
-      setThroneStatus(status);
-    } catch {
-      setThroneStatus('denied');
-    }
+  // Opens the Throne User ID modal instead of immediately calling the service
+  const handleThroneRequest = useCallback(() => {
+    setThroneIdInput('');
+    setThroneModalVisible(true);
   }, []);
+
+  // Called when the user confirms their Throne User ID in the modal
+  const handleThroneIdConfirm = useCallback(async () => {
+    const trimmed = throneIdInput.trim();
+    if (!trimmed) return;
+
+    setThroneIdSaving(true);
+    try {
+      const uid = user?.id;
+      if (uid) {
+        // SHORT-TERM: User manually enters their Throne User ID (found in the
+        // Throne app under Profile → Account). We persist it here so the
+        // syncThroneUserMap Cloud Function trigger automatically creates the
+        // throneUserMap reverse-lookup entry for data ingestion.
+        await saveThroneUserId(uid, trimmed);
+      }
+
+      // LONG-TERM (uncomment when real Throne SDK is available):
+      // The OAuth flow will return the throneUserId automatically — no manual
+      // entry needed. Replace the saveThroneUserId call above with:
+      //
+      // const throneResult = await ThroneSDK.authorize({ studyId: THRONE_STUDY_ID });
+      // if (uid) await saveThroneUserId(uid, throneResult.userId);
+
+      await ThroneService.requestPermission();
+      setThroneStatus('granted');
+      setThroneModalVisible(false);
+    } catch {
+      Alert.alert('Error', 'Failed to save Throne User ID. Please try again.');
+    } finally {
+      setThroneIdSaving(false);
+    }
+  }, [throneIdInput, user?.id]);
 
   const handleThroneSkip = useCallback(async () => {
     await ThroneService.skipSetup();
@@ -147,16 +190,11 @@ export default function PermissionsScreen() {
           throne: throneStatus as 'granted' | 'denied' | 'not_determined' | 'skipped',
         },
       });
-      await OnboardingService.goToStep(OnboardingStep.HEALTH_DATA_TEST);
-      router.push('/(onboarding)/health-data-test' as Href);
+      await OnboardingService.goToStep(OnboardingStep.MEDICAL_HISTORY);
+      router.push('/(onboarding)/medical-history' as Href);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDevContinue = async () => {
-    await OnboardingService.goToStep(OnboardingStep.HEALTH_DATA_TEST);
-    router.push('/(onboarding)/health-data-test' as Href);
   };
 
   return (
@@ -202,13 +240,12 @@ export default function PermissionsScreen() {
 
         <PermissionCard
           title="Throne Uroflow"
-          description="Connect your Throne device to track voiding patterns and flow measurements."
+          description="Connect your Throne device to track voiding patterns and flow measurements. You'll need your Throne User ID from the Throne app."
           icon="drop.fill"
           status={throneStatus}
           onRequest={handleThroneRequest}
           onSkip={handleThroneSkip}
           optional
-          comingSoon
         />
 
         <View
@@ -239,24 +276,84 @@ export default function PermissionsScreen() {
         />
       </View>
 
-      <DevToolBar
-        currentStep={OnboardingStep.PERMISSIONS}
-        onContinue={handleDevContinue}
-        extraActions={[
-          {
-            label: 'Reset HK Permissions',
-            color: '#AF52DE',
-            onPress: () => {
-              setHealthKitStatus('not_determined');
-              setThroneStatus('not_determined');
-              Alert.alert(
-                'Permissions Reset',
-                'App permission state cleared. Tap "Request HealthKit Access" to re-request.\n\nNote: iOS only shows the system dialog once per install. To fully reset, delete and reinstall the app.',
-              );
-            },
-          },
-        ]}
-      />
+      {/* Throne User ID Modal */}
+      <Modal
+        visible={throneModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setThroneModalVisible(false)}
+      >
+        <Pressable
+          style={modalStyles.backdrop}
+          onPress={() => setThroneModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <Pressable style={[modalStyles.sheet, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+              <View style={[modalStyles.handle, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]} />
+
+              <View style={modalStyles.iconRow}>
+                <IconSymbol name="drop.fill" size={28} color={StanfordColors.cardinal} />
+              </View>
+
+              <Text style={[modalStyles.title, { color: colors.text }]}>
+                Connect Throne Device
+              </Text>
+              <Text style={[modalStyles.body, { color: colors.icon }]}>
+                Enter your Throne User ID. You can find this in the Throne app under{' '}
+                <Text style={{ fontWeight: '600' }}>Profile → Account → User ID</Text>.
+              </Text>
+
+              <TextInput
+                style={[
+                  modalStyles.input,
+                  {
+                    color: colors.text,
+                    borderColor: isDark ? '#3A3A3C' : '#E5E5EA',
+                    backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7',
+                  },
+                ]}
+                placeholder="e.g. usr_abc123xyz"
+                placeholderTextColor={colors.icon}
+                value={throneIdInput}
+                onChangeText={setThroneIdInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleThroneIdConfirm}
+              />
+
+              <TouchableOpacity
+                style={[
+                  modalStyles.confirmButton,
+                  { backgroundColor: throneIdInput.trim() ? StanfordColors.cardinal : (isDark ? '#3A3A3C' : '#E5E5EA') },
+                ]}
+                onPress={handleThroneIdConfirm}
+                disabled={!throneIdInput.trim() || throneIdSaving}
+                activeOpacity={0.8}
+              >
+                {throneIdSaving ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={[modalStyles.confirmText, { color: throneIdInput.trim() ? '#FFFFFF' : colors.icon }]}>
+                    Connect
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={modalStyles.cancelButton}
+                onPress={() => setThroneModalVisible(false)}
+                disabled={throneIdSaving}
+              >
+                <Text style={[modalStyles.cancelText, { color: colors.icon }]}>Cancel</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -300,5 +397,74 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginBottom: Spacing.sm,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 20,
+  },
+  iconRow: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: 'rgba(140,21,21,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  body: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  input: {
+    width: '100%',
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  confirmButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  confirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingVertical: 10,
+  },
+  cancelText: {
+    fontSize: 15,
   },
 });

@@ -13,6 +13,7 @@ import {
   getDateRange,
 } from '@/lib/services/healthkit';
 import { buildHealthSummaryDay } from '@/lib/services/health-summary';
+import { formatDateKey } from '@/lib/services/healthkit/mappers';
 import type { HealthSummaryDay } from '@/lib/services/health-summary';
 
 export function useHealthSummary(): {
@@ -47,14 +48,14 @@ export function useHealthSummary(): {
 
         if (cancelled) return;
 
-        // Today's date string
-        const today = new Date().toISOString().split('T')[0];
+        // Today's date string (local timezone — matches how HealthKit data is bucketed)
+        const today = formatDateKey(new Date());
 
         // Find today's data, falling back to most recent if today has none
         const todayActivity =
           activityData.find((d) => d.date === today) ??
           (activityData.length > 0 ? activityData[activityData.length - 1] : null);
-        const todaySleep = sleepData.length > 0 ? sleepData[0] : null;
+        const todaySleep = sleepData.length > 0 ? sleepData[sleepData.length - 1] : null;
         const todayVitals =
           vitalsData.find((d) => d.date === today) ??
           (vitalsData.length > 0 ? vitalsData[vitalsData.length - 1] : null);

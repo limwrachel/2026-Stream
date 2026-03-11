@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAppTheme } from '@/lib/theme/ThemeContext';
+import { FontSize, FontWeight } from '@/lib/theme/typography';
 
 interface SurgeryCompleteModalProps {
   visible: boolean;
@@ -128,20 +129,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: FontSize.titleMedium,
+    fontWeight: FontWeight.bold,
     marginBottom: 12,
     textAlign: 'center',
     letterSpacing: 0.35,
   },
   body: {
-    fontSize: 15,
+    fontSize: FontSize.subhead,
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtext: {
-    fontSize: 13,
+    fontSize: FontSize.footnote,
     textAlign: 'center',
     marginBottom: 28,
   },
@@ -153,8 +154,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: FontSize.headline,
+    fontWeight: FontWeight.semibold,
     color: '#FFFFFF',
   },
 });

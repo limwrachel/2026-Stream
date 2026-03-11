@@ -1,13 +1,19 @@
 /**
  * Surgery Date Hook
  *
- * Reads the scheduled surgery date from onboarding medical history data.
- * Falls back to a placeholder date in dev builds when no real data exists.
+ * Resolves the surgery date with the following priority:
+ *   1. Firestore (authoritative — set after login via saveSurgeryDate)
+ *   2. OnboardingService / AsyncStorage (set during eligibility before login)
+ *   3. Dev placeholder (14 days from now, __DEV__ only)
+ *
+ * Re-fetches whenever the authenticated user changes.
  */
 
 import { useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '@/lib/constants';
+import { useAuth } from '@/lib/auth/auth-context';
+import { fetchSurgeryDate } from '@/src/services/throneFirestore';
+import { OnboardingService } from '@/lib/services/onboarding-service';
+import { DEV_FIREBASE_UID } from '@/lib/constants';
 
 interface SurgeryDateInfo {
   /** The surgery date string (YYYY-MM-DD) or null */
@@ -20,13 +26,24 @@ interface SurgeryDateInfo {
   isPlaceholder: boolean;
   /** Loading state */
   isLoading: boolean;
-  /** Study start date (YYYY-MM-DD) — at least 1 week before surgery */
+  /** Study start date (YYYY-MM-DD) — 7 days before surgery */
   studyStartDate: string | null;
   studyStartLabel: string;
   /** Study end date (YYYY-MM-DD) — 90 days after surgery */
   studyEndDate: string | null;
   studyEndLabel: string;
 }
+
+const NOT_SCHEDULED: Omit<SurgeryDateInfo, 'isLoading'> = {
+  date: null,
+  dateLabel: 'Not scheduled',
+  hasPassed: false,
+  isPlaceholder: true,
+  studyStartDate: null,
+  studyStartLabel: 'Not scheduled',
+  studyEndDate: null,
+  studyEndLabel: 'Not scheduled',
+};
 
 // Dev placeholder: surgery 2 weeks from now
 function getPlaceholderDate(): string {
@@ -42,107 +59,85 @@ function addDays(dateStr: string, days: number): string {
 }
 
 function formatDateLabel(dateStr: string): string {
-  const date = new Date(dateStr + 'T12:00:00');
-  return date.toLocaleDateString('en-US', {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   });
 }
 
+function buildInfo(dateStr: string, isPlaceholder: boolean): SurgeryDateInfo {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const surgDate = new Date(dateStr + 'T12:00:00');
+  const startDate = addDays(dateStr, -7);
+  const endDate = addDays(dateStr, 90);
+
+  return {
+    date: dateStr,
+    dateLabel: formatDateLabel(dateStr),
+    hasPassed: surgDate <= today,
+    isPlaceholder,
+    isLoading: false,
+    studyStartDate: startDate,
+    studyStartLabel: formatDateLabel(startDate),
+    studyEndDate: endDate,
+    studyEndLabel: formatDateLabel(endDate),
+  };
+}
+
 export function useSurgeryDate(): SurgeryDateInfo {
+  const { user } = useAuth();
+  const uid = user?.id ?? (__DEV__ ? DEV_FIREBASE_UID : null);
+
   const [info, setInfo] = useState<SurgeryDateInfo>({
-    date: null,
-    dateLabel: '',
-    hasPassed: false,
-    isPlaceholder: true,
+    ...NOT_SCHEDULED,
     isLoading: true,
-    studyStartDate: null,
-    studyStartLabel: '',
-    studyEndDate: null,
-    studyEndLabel: '',
   });
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadSurgeryDate() {
+    async function load() {
       try {
-        // Check AsyncStorage directly for a surgery date field
-        const stored = await AsyncStorage.getItem(STORAGE_KEYS.MEDICAL_HISTORY);
-        let surgeryDate: string | null = null;
-
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            surgeryDate = parsed.surgeryDate ?? null;
-          } catch {
-            // ignore parse errors
+        // 1. Firestore — most authoritative, available after login
+        if (uid) {
+          const firestoreDate = await fetchSurgeryDate(uid);
+          if (!cancelled && firestoreDate) {
+            setInfo(buildInfo(firestoreDate, false));
+            return;
           }
         }
 
         if (cancelled) return;
 
-        const isPlaceholder = !surgeryDate;
-        const effectiveDate = surgeryDate ?? (__DEV__ ? getPlaceholderDate() : null);
+        // 2. OnboardingService (AsyncStorage) — available before/after login
+        const onboardingData = await OnboardingService.getData();
+        const localDate = onboardingData.eligibility?.surgeryDate ?? null;
 
-        if (effectiveDate) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const surgDate = new Date(effectiveDate + 'T12:00:00');
-          const hasPassed = surgDate <= today;
+        if (!cancelled && localDate) {
+          setInfo(buildInfo(localDate, false));
+          return;
+        }
 
-          // Study start: 7 days before surgery; Study end: 90 days after surgery
-          const startDate = addDays(effectiveDate, -7);
-          const endDate = addDays(effectiveDate, 90);
+        if (cancelled) return;
 
-          setInfo({
-            date: effectiveDate,
-            dateLabel: formatDateLabel(effectiveDate),
-            hasPassed,
-            isPlaceholder,
-            isLoading: false,
-            studyStartDate: startDate,
-            studyStartLabel: formatDateLabel(startDate),
-            studyEndDate: endDate,
-            studyEndLabel: formatDateLabel(endDate),
-          });
+        // 3. Dev placeholder
+        if (__DEV__) {
+          setInfo(buildInfo(getPlaceholderDate(), true));
         } else {
-          setInfo({
-            date: null,
-            dateLabel: 'Not scheduled',
-            hasPassed: false,
-            isPlaceholder: true,
-            isLoading: false,
-            studyStartDate: null,
-            studyStartLabel: 'Not scheduled',
-            studyEndDate: null,
-            studyEndLabel: 'Not scheduled',
-          });
+          setInfo({ ...NOT_SCHEDULED, isLoading: false });
         }
       } catch {
         if (!cancelled) {
-          setInfo({
-            date: null,
-            dateLabel: 'Not scheduled',
-            hasPassed: false,
-            isPlaceholder: true,
-            isLoading: false,
-            studyStartDate: null,
-            studyStartLabel: 'Not scheduled',
-            studyEndDate: null,
-            studyEndLabel: 'Not scheduled',
-          });
+          setInfo({ ...NOT_SCHEDULED, isLoading: false });
         }
       }
     }
 
-    loadSurgeryDate();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    load();
+    return () => { cancelled = true; };
+  }, [uid]);
 
   return info;
 }

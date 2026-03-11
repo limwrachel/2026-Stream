@@ -8,10 +8,14 @@
  *
  * Firestore path
  * ──────────────
- *   users/{uid}/medicalHistoryPrefill/latest
- *     — full MedicalHistoryPrefill JSON
+ *   users/{uid}/medical_history_prefill/latest
+ *     — full MedicalHistoryPrefill JSON (machine-parsed, unconfirmed)
  *     — generatedAt (server timestamp)
  *     — sourceRecordCounts (how many records fed the parser)
+ *
+ * This document is the raw prefill. The user-confirmed, combined document
+ * lives at users/{uid}/medical_history/current and is written when the
+ * user completes the Medical History onboarding screen.
  *
  * This document is overwritten on every sync; it always reflects the
  * most recent clinical records available on the device.
@@ -114,14 +118,14 @@ export async function syncFhirPrefill(): Promise<SyncFhirPrefillResult> {
     const prefill = buildMedicalHistoryPrefill(clinicalInput, hkDemographics);
 
     // Write to Firestore — overwrite on each sync so it's always current
-    const ref = doc(db, `users/${uid}/medicalHistoryPrefill/latest`);
+    const ref = doc(db, `users/${uid}/medical_history_prefill/latest`);
     await setDoc(ref, {
       ...prefill,
       generatedAt: serverTimestamp(),
       sourceRecordCounts,
     });
 
-    console.log('[FhirPrefill] Written to Firestore → users/' + uid + '/medicalHistoryPrefill/latest');
+    console.log('[FhirPrefill] Written to Firestore → users/' + uid + '/medical_history_prefill/latest');
     return { ok: true, prefill, sourceRecordCounts };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
